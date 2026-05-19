@@ -32,7 +32,10 @@
       "Bash(git checkout *)",
       "Read(//private/tmp/pm-skills-explore/**)",
       "Bash(git rm *)",
-      "Bash(rm .gitmodules)"
+      "Bash(rm .gitmodules)",
+      "Bash(ls ~/.claude/skills/ 2>/dev/null | head -30 && echo \"---\" && ls ~/.claude/ 2>/dev/null)",
+      "Bash(cat \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/skill-authoring-workflow/SKILL.md\" | head -60)",
+      "Bash(ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\" | wc -l && echo \"---\" && ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\")"
     ]
   }
 }
