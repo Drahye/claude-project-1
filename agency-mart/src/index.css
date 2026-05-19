@@ -1,0 +1,215 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0rem;
+    --paper: #f5f0e8;
+    --ink: #1a1a1a;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper) !important;
+  font-family: 'Space Mono', 'Courier New', monospace;
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 27px,
+    rgba(0,0,0,0.022) 27px,
+    rgba(0,0,0,0.022) 28px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--ink); }
+
+/* ── BARCODE STRIP ── */
+.barcode-strip {
+  display: flex;
+  gap: 1px;
+  align-items: flex-end;
+}
+.barcode-strip span {
+  background: var(--ink);
+  display: block;
+}
+
+/* ── RECEIPT PAPER EDGE ── */
+.receipt-paper {
+  background: #fff;
+  position: relative;
+}
+.receipt-paper::before,
+.receipt-paper::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 20px;
+}
+.receipt-paper::before {
+  top: -19px;
+  background-image: radial-gradient(circle at 50% 0%, var(--paper) 10px, #fff 10px);
+  background-size: 22px 20px;
+}
+.receipt-paper::after {
+  bottom: -19px;
+  background-image: radial-gradient(circle at 50% 100%, var(--paper) 10px, #fff 10px);
+  background-position: 0 100%;
+  background-size: 22px 20px;
+}
+
+/* ── PRODUCT CARD ── */
+.product-card {
+  background: rgba(245,240,232,0.97);
+  border: 1px solid rgba(26,26,26,0.22);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.25s, transform 0.25s;
+}
+.product-card:hover {
+  box-shadow: 5px 5px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+/* ── NUTRITION TABLE ── */
+.nutrition-table { border: 1px solid var(--ink); font-size: 0.585rem; }
+.nutrition-header { font-weight: 700; font-size: 0.72rem; border-bottom: 6px solid var(--ink); padding: 3px 5px; letter-spacing: 0.5px; }
+.nutrition-row { display: flex; justify-content: space-between; padding: 2px 5px; border-bottom: 1px solid rgba(26,26,26,0.18); letter-spacing: 0.3px; }
+.nutrition-row.thick { border-bottom: 4px solid var(--ink); }
+
+/* ── BTN ── */
+.btn-ink {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.67rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 11px 16px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.22s;
+  display: block;
+}
+.btn-ink:hover { background: #2a2a2a; letter-spacing: 4px; }
+.btn-ink.added { background: #1e5c19; }
+.btn-ink.checkout:hover { background: #163d11; }
+
+/* ── CANVAS WRAPPER ── */
+.canvas-wrapper { width: 100%; height: 260px; background: #f9f9f7; overflow: hidden; position: relative; }
+.canvas-wrapper canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* ── CART BADGE ── */
+.cart-badge {
+  position: fixed;
+  top: 18px; right: 18px;
+  background: var(--ink);
+  color: var(--paper);
+  width: 50px; height: 50px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 1px;
+  cursor: pointer;
+  z-index: 999;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  transition: transform 0.2s;
+  border: 2px solid transparent;
+}
+.cart-badge:hover { border-color: var(--paper); outline: 2px solid var(--ink); }
+
+/* ── TOAST ── */
+.toast-bar {
+  position: fixed;
+  bottom: 26px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 9px 20px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.63rem;
+  letter-spacing: 3px;
+  white-space: nowrap;
+  z-index: 1000;
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  pointer-events: none;
+}
+.toast-bar.show { transform: translateX(-50%) translateY(0); }
+
+/* ── TICKER ── */
+.ticker-wrap { overflow: hidden; padding: 10px 0; white-space: nowrap; }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-content { display: inline-block; animation: ticker 24s linear infinite; font-size: 0.62rem; letter-spacing: 4px; }
+
+/* ── NAV CATEGORY LINKS (show on md+) ── */
+@media (min-width: 768px) {
+  .nav-cat-link { display: block !important; }
+}
+
+/* ── SLIDE IN ANIMATION ── */
+@keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+.slide-in { animation: slideIn 0.3s ease forwards; }
+
+/* ── TICKER KEYFRAME (inline version) ── */
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── BLINK ── */
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.15; } }
+.blink { animation: blink 1.8s ease-in-out infinite; }
+
+/* ── SLIDE IN ── */
+@keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+.slide-in { animation: slideIn 0.3s ease forwards; }
+
+/* ── PRICE TAG ── */
+.price-tag {
+  position: absolute; top: 11px; right: 11px;
+  background: var(--ink); color: var(--paper);
+  padding: 4px 8px;
+  font-weight: 700; font-size: 0.82rem;
+  z-index: 2;
+  font-family: 'Space Mono', monospace;
+}

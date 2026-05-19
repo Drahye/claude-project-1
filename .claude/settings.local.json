@@ -35,7 +35,21 @@
       "Bash(rm .gitmodules)",
       "Bash(ls ~/.claude/skills/ 2>/dev/null | head -30 && echo \"---\" && ls ~/.claude/ 2>/dev/null)",
       "Bash(cat \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/skill-authoring-workflow/SKILL.md\" | head -60)",
-      "Bash(ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\" | wc -l && echo \"---\" && ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\")"
+      "Bash(ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\" | wc -l && echo \"---\" && ls \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.agents/skills/\")",
+      "Skill(anthropic-skills:web-artifacts-builder)",
+      "Skill(anthropic-skills:web-artifacts-builder:*)",
+      "Bash(bash \"/Users/oluwadamilare/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/e0abdc8b-b1b4-4f55-bf90-273f25fa75f9/6c772fbb-7fcb-4502-b4f1-ec1138e07967/skills/web-artifacts-builder/scripts/init-artifact.sh\" agency-mart)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm tsc *)",
+      "Bash(bash \"/Users/oluwadamilare/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/e0abdc8b-b1b4-4f55-bf90-273f25fa75f9/6c772fbb-7fcb-4502-b4f1-ec1138e07967/skills/web-artifacts-builder/scripts/bundle-artifact.sh\")",
+      "Bash(Read \"/private/tmp/claude-501/-Users-oluwadamilare-Desktop-ABRAHAM-S-PROJECT--claude-worktrees-stoic-elbakyan-c7b508/def6522e-24f8-45ba-b4af-ba0836446000/tasks/bv0xxlw2u.output\")",
+      "Bash(pnpm build *)",
+      "Bash(pnpm list *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('peerDeps:', d.get\\('peerDependencies',{}\\)\\); print\\('deps:', {k:v for k,v in d.get\\('dependencies',{}\\).items\\(\\) if 'react' in k}\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(pnpm exec *)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(pkill -f \"vite.*5174\")"
     ]
   }
 }
