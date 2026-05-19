@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Lab — Build. Play. Level Up.</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg:        #050505;
+      --surface:   #0d0d0d;
+      --surface-2: #141414;
+      --border:    rgba(255,255,255,0.06);
+      --border-hi: rgba(255,255,255,0.12);
+      --primary:   #6366f1;
+      --primary-lo: rgba(99,102,241,0.12);
+      --cta:       #f97316;
+      --cta-lo:    rgba(249,115,22,0.15);
+      --cyan:      #22d3ee;
+      --cyan-lo:   rgba(34,211,238,0.1);
+      --text:      #f1f5f9;
+      --text-muted:#64748b;
+      --text-dim:  #334155;
+      --green:     #4ade80;
+      --purple:    #a78bfa;
+    }
+
+    /* ─── BASE ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+
+    /* ─── NOISE OVERLAY (fixed, pointer-events-none) ────── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+      opacity: 0.025;
+    }
+
+    /* ─── SCROLLBAR ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--text-dim); border-radius: 2px; }
+
+    /* ─── FLOATING NAV ───────────────────────────────────── */
+    .floating-nav {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 8px 8px 8px 20px;
+      border-radius: 9999px;
+      background: rgba(13,13,13,0.8);
+      border: 1px solid var(--border-hi);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+
+    .nav-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-right: 28px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-logo-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--primary), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-right: 12px;
+    }
+
+    .nav-link {
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 150ms ease-out, background 150ms ease-out;
+      text-decoration: none;
+    }
+
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    .nav-cta {
+      padding: 8px 18px;
+      border-radius: 9999px;
+      background: var(--cta);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+      box-shadow: 0 0 0 0 rgba(249,115,22,0);
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(249,115,22,0.35);
+    }
+
+    .nav-cta:active { transform: scale(0.97); }
+
+    .nav-cta-arrow {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      transition: transform 150ms ease-out;
+    }
+
+    .nav-cta:hover .nav-cta-arrow { transform: translateX(1px) translateY(-1px); }
+
+    /* ─── EYEBROW TAG ─────────────────────────────────────── */
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: var(--primary-lo);
+      border: 1px solid rgba(99,102,241,0.2);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 24px;
+    }
+
+    .eyebrow-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    /* ─── DOUBLE-BEZEL CARD ──────────────────────────────── */
+    .bezel {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 6px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+    }
+
+    .bezel-inner {
+      background: var(--surface);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+
+    /* ─── GLOW ORBS (background) ─────────────────────────── */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+
+    /* ─── LIQUID GLASS CARD ──────────────────────────────── */
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        0 8px 32px rgba(0,0,0,0.3);
+      transition: border-color 200ms ease-out, box-shadow 200ms ease-out, transform 200ms ease-out;
+    }
+
+    .glass-card:hover {
+      border-color: var(--border-hi);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 12px 40px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(99,102,241,0.1);
+      transform: translateY(-2px);
+    }
+
+    /* ─── BENTO GRID ─────────────────────────────────────── */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .bento-1 { grid-column: span 7; }
+    .bento-2 { grid-column: span 5; }
+    .bento-3 { grid-column: span 5; }
+    .bento-4 { grid-column: span 7; }
+    .bento-5 { grid-column: span 4; }
+    .bento-6 { grid-column: span 4; }
+    .bento-7 { grid-column: span 4; }
+
+    @media (max-width: 900px) {
+      .bento-grid { grid-template-columns: 1fr; }
+      .bento-1, .bento-2, .bento-3, .bento-4,
+      .bento-5, .bento-6, .bento-7 { grid-column: span 1; }
+    }
+
+    /* ─── PROGRESS BAR ───────────────────────────────────── */
+    .progress-track {
+      width: 100%; height: 3px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, var(--primary), var(--cyan));
+      transition: width 400ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    /* ─── XP PILL ─────────────────────────────────────────── */
+    .xp-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--cta-lo);
+      border: 1px solid rgba(249,115,22,0.25);
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cta);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* ─── BUTTONS ─────────────────────────────────────────── */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      border-radius: 9999px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: transform 200ms cubic-bezier(0.32,0.72,0,1),
+                  box-shadow 200ms cubic-bezier(0.32,0.72,0,1);
+      box-shadow: 0 0 32px rgba(99,102,241,0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(99,102,241,0.45);
+    }
+
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-primary .btn-arrow {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      transition: transform 200ms cubic-bezier(0.32,0.72,0,1);
+    }
+
+    .btn-primary:hover .btn-arrow { transform: translateX(2px) translateY(-2px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      border-radius: 9999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-hi);
+      color: var(--text-muted);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.07);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary:active { transform: scale(0.97); }
+
+    .btn-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 28px;
+      border-radius: 9999px;
+      background: var(--cta);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: transform 200ms cubic-bezier(0.32,0.72,0,1),
+                  box-shadow 200ms cubic-bezier(0.32,0.72,0,1);
+      box-shadow: 0 0 40px rgba(249,115,22,0.35);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .btn-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 40px rgba(249,115,22,0.5);
+    }
+
+    .btn-cta:active { transform: scale(0.97); }
+
+    /* ─── STAT COUNTER ────────────────────────────────────── */
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--text), var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ─── ACHIEVEMENT BADGE ──────────────────────────────── */
+    .achievement-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      transition: border-color 200ms ease-out, background 200ms ease-out, transform 200ms ease-out;
+      cursor: pointer;
+    }
+
+    .achievement-badge.unlocked {
+      background: rgba(99,102,241,0.08);
+      border-color: rgba(99,102,241,0.25);
+      box-shadow: 0 0 20px rgba(99,102,241,0.1);
+    }
+
+    .achievement-badge:hover { transform: translateX(4px); }
+
+    .badge-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    .achievement-badge.unlocked .badge-icon {
+      background: var(--primary-lo);
+      border-color: rgba(99,102,241,0.3);
+    }
+
+    /* ─── PRICING CARD ────────────────────────────────────── */
+    .pricing-card {
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 32px;
+      transition: border-color 200ms ease-out, transform 200ms ease-out;
+      position: relative;
+    }
+
+    .pricing-card:hover { border-color: var(--border-hi); transform: translateY(-4px); }
+
+    .pricing-card.featured {
+      background: linear-gradient(160deg, rgba(99,102,241,0.12) 0%, rgba(99,102,241,0.04) 100%);
+      border-color: rgba(99,102,241,0.3);
+      box-shadow: 0 0 60px rgba(99,102,241,0.1);
+    }
+
+    .pricing-card.featured:hover { border-color: rgba(99,102,241,0.5); }
+
+    .price-badge {
+      position: absolute;
+      top: -13px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 5px 14px;
+      background: var(--primary);
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+
+    .check-icon {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(74,222,128,0.1);
+      border: 1px solid rgba(74,222,128,0.25);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 9px;
+      color: var(--green);
+    }
+
+    /* ─── SCROLL REVEAL ──────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      filter: blur(4px);
+      transition:
+        opacity 700ms cubic-bezier(0.32,0.72,0,1),
+        transform 700ms cubic-bezier(0.32,0.72,0,1),
+        filter 700ms cubic-bezier(0.32,0.72,0,1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+
+    /* ─── DEMO AREA ───────────────────────────────────────── */
+    .demo-terminal {
+      background: #0a0a0a;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .terminal-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-body {
+      padding: 20px;
+      font-family: 'Space Grotesk', monospace;
+      font-size: 13px;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .terminal-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 300ms ease-out, transform 300ms ease-out;
+    }
+
+    .terminal-line.active { opacity: 1; transform: translateX(0); }
+
+    .terminal-prefix { color: var(--primary); }
+    .terminal-success { color: var(--green); }
+    .terminal-text { color: var(--text-muted); }
+
+    /* ─── ACHIEVEMENT POPUP ──────────────────────────────── */
+    .achievement-popup {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9000;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 18px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.1);
+      opacity: 0;
+      transform: translateY(12px) scale(0.97);
+      transition: opacity 300ms cubic-bezier(0.32,0.72,0,1),
+                  transform 300ms cubic-bezier(0.32,0.72,0,1);
+      pointer-events: none;
+    }
+
+    .achievement-popup.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    /* ─── NAV XP DISPLAY ─────────────────────────────────── */
+    .nav-xp {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk', sans-serif;
+      margin-right: 8px;
+    }
+
+    .nav-xp-bar {
+      width: 48px; height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .nav-xp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--cyan));
+      border-radius: 9999px;
+      transition: width 500ms cubic-bezier(0.32,0.72,0,1);
+    }
+
+    /* ─── LEADERBOARD ROW ────────────────────────────────── */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .lb-row:last-child { border-bottom: none; }
+
+    .lb-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ─── FOOTER DIVIDER ─────────────────────────────────── */
+    .section-divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-hi), transparent);
+    }
+
+    /* ─── REDUCED MOTION ─────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+      .reveal { opacity: 1; transform: none; filter: none; }
+    }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .floating-nav .nav-links { display: none; }
+      .hero-split { flex-direction: column !important; }
+      .hero-right { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── FLOATING NAV ─────────────────────────────────────── -->
+  <nav class="floating-nav" id="navbar">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1L13 4V10L7 13L1 10V4L7 1Z" fill="white" fill-opacity="0.9"/>
+        </svg>
+      </div>
+      Game Lab
+    </div>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#demo" class="nav-link">Demo</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+    </div>
+    <div class="nav-xp" id="nav-xp-display">
+      <span id="nav-xp-text">0 XP</span>
+      <div class="nav-xp-bar">
+        <div class="nav-xp-fill" id="nav-xp-fill" style="width:0%"></div>
+      </div>
+    </div>
+    <button class="nav-cta" onclick="scrollTo('pricing')">
+      Get Started
+      <span class="nav-cta-arrow">↗</span>
+    </button>
+  </nav>
+
+  <!-- ─── ACHIEVEMENT POPUP ────────────────────────────────── -->
+  <div class="achievement-popup" id="achievement-popup">
+    <div style="width:44px;height:44px;border-radius:12px;background:var(--primary-lo);border:1px solid rgba(99,102,241,0.3);display:flex;align-items:center;justify-content:center;font-size:20px;" id="popup-icon">🏆</div>
+    <div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);font-weight:700;margin-bottom:2px;">Achievement Unlocked</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);" id="popup-name">First Steps</div>
+      <div style="font-size:12px;color:var(--text-muted);" id="popup-xp">+100 XP earned</div>
+    </div>
+  </div>
+
+  <!-- ─── HERO ──────────────────────────────────────────────── -->
+  <section style="min-height:100dvh;display:flex;align-items:center;padding:120px 40px 80px;max-width:1400px;margin:0 auto;position:relative;">
+    <!-- Orbs -->
+    <div class="orb" style="width:500px;height:500px;background:rgba(99,102,241,0.08);top:-100px;left:-100px;"></div>
+    <div class="orb" style="width:400px;height:400px;background:rgba(249,115,22,0.05);bottom:0;right:100px;"></div>
+
+    <div class="hero-split" style="display:flex;gap:80px;align-items:center;width:100%;position:relative;z-index:1;">
+      <!-- Left: Text -->
+      <div style="flex:1;min-width:0;">
+        <div class="eyebrow reveal">
+          <span class="eyebrow-dot"></span>
+          Open Enrollment Now Live
+        </div>
+        <h1 class="reveal" style="font-size:clamp(48px,6vw,88px);margin-bottom:24px;color:var(--text);">
+          Build games.<br/>
+          <span style="background:linear-gradient(135deg,var(--primary),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Ship faster.</span><br/>
+          Level up.
+        </h1>
+        <p class="reveal" style="font-size:17px;line-height:1.7;color:var(--text-muted);max-width:440px;margin-bottom:40px;">
+          Game Lab is the only platform where every course, every challenge, and every project earns you real XP. Learn by doing, not watching.
+        </p>
+        <div class="reveal" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:56px;">
+          <button class="btn-primary" onclick="startDemo()">
+            Start Demo
+            <span class="btn-arrow">→</span>
+          </button>
+          <button class="btn-secondary" onclick="scrollTo('features')">
+            Explore curriculum
+          </button>
+        </div>
+        <!-- Social proof -->
+        <div class="reveal" style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;">
+            {['A','B','C','D','E'].map(l => `<div style="width:30px;height:30px;border-radius:50%;background:var(--surface-2);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-muted);margin-left:-8px;">${l}</div>`).join('')}
+          </div>
+          <div style="font-size:13px;color:var(--text-muted);">
+            <span style="color:var(--text);font-weight:600;">50,000+</span> developers already enrolled
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Stats dashboard -->
+      <div class="hero-right reveal" style="width:380px;flex-shrink:0;">
+        <div class="bezel">
+          <div class="bezel-inner" style="padding:24px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+              <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:0.04em;text-transform:uppercase;font-size:11px;">Your Progress</div>
+              <div class="xp-pill" id="hero-xp">0 XP · Lv.1</div>
+            </div>
+            <div class="progress-track" style="margin-bottom:24px;">
+              <div class="progress-fill" id="hero-progress" style="width:0%;"></div>
+            </div>
+            <!-- Leaderboard -->
+            <div style="margin-bottom:16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);">Live Leaderboard</div>
+            <div id="leaderboard">
+              <div class="lb-row"><span style="color:var(--cta);font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:13px;">#1</span><div class="lb-avatar">AX</div><span style="flex:1;color:var(--text);font-weight:500;">axelcode</span><div class="xp-pill">9840 XP</div></div>
+              <div class="lb-row"><span style="color:var(--text-muted);font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:13px;">#2</span><div class="lb-avatar">MR</div><span style="flex:1;color:var(--text);font-weight:500;">mrsantos</span><div class="xp-pill">8120 XP</div></div>
+              <div class="lb-row"><span style="color:var(--text-muted);font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:13px;">#3</span><div class="lb-avatar">LK</div><span style="flex:1;color:var(--text);font-weight:500;">lukewarm</span><div class="xp-pill">7345 XP</div></div>
+              <div class="lb-row" style="background:rgba(99,102,241,0.06);border-radius:8px;padding:8px 10px;margin-top:8px;border:none;">
+                <span style="color:var(--primary);font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:13px;" id="my-rank">#—</span>
+                <div class="lb-avatar" style="background:var(--primary-lo);border-color:rgba(99,102,241,0.3);color:var(--primary);">ME</div>
+                <span style="flex:1;color:var(--text);font-weight:500;">you</span>
+                <div class="xp-pill" id="my-xp-pill">0 XP</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider" style="max-width:1400px;margin:0 auto;"></div>
+
+  <!-- ─── STATS ROW ─────────────────────────────────────────── -->
+  <section style="padding:64px 40px;max-width:1400px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:40px;" id="stats-row">
+      <div class="reveal" style="text-align:center;">
+        <div class="stat-value">500+</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">Gamified Courses</div>
+      </div>
+      <div class="reveal" style="text-align:center;">
+        <div class="stat-value">50K+</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">Active Players</div>
+      </div>
+      <div class="reveal" style="text-align:center;">
+        <div class="stat-value">4.9</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">Average Rating</div>
+      </div>
+      <div class="reveal" style="text-align:center;">
+        <div class="stat-value">95%</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">Completion Rate</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider" style="max-width:1400px;margin:0 auto;"></div>
+
+  <!-- ─── INTERACTIVE DEMO ──────────────────────────────────── -->
+  <section id="demo" style="padding:100px 40px;max-width:1400px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:start;">
+      <!-- Left: Text -->
+      <div>
+        <div class="eyebrow reveal">Interactive Demo</div>
+        <h2 class="reveal" style="font-size:clamp(32px,4vw,52px);margin-bottom:20px;">Feel what gamified<br/>learning is like.</h2>
+        <p class="reveal" style="font-size:15px;line-height:1.7;color:var(--text-muted);margin-bottom:36px;max-width:380px;">Run the demo below. Complete each stage, earn XP, and unlock your first achievement — all in under 60 seconds.</p>
+
+        <!-- Achievements list -->
+        <div style="display:flex;flex-direction:column;gap:8px;" id="achievement-list">
+          <div class="achievement-badge" id="ach-1">
+            <div class="badge-icon">🏆</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">First Steps</div>
+              <div style="font-size:11px;color:var(--text-muted);">Complete your first demo</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-dim);font-weight:600;" id="ach-1-status">Locked</div>
+          </div>
+          <div class="achievement-badge" id="ach-2">
+            <div class="badge-icon">⚡</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">Speed Runner</div>
+              <div style="font-size:11px;color:var(--text-muted);">Finish in under 30s</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-dim);font-weight:600;" id="ach-2-status">Locked</div>
+          </div>
+          <div class="achievement-badge" id="ach-3">
+            <div class="badge-icon">🎯</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">Sharp Shooter</div>
+              <div style="font-size:11px;color:var(--text-muted);">Click every step precisely</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--text-dim);font-weight:600;" id="ach-3-status">Locked</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Terminal demo -->
+      <div class="reveal">
+        <div class="demo-terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot" style="background:#ff5f57;"></div>
+            <div class="terminal-dot" style="background:#febc2e;"></div>
+            <div class="terminal-dot" style="background:#28c840;"></div>
+            <span style="margin-left:8px;font-size:12px;color:var(--text-dim);font-family:'Space Grotesk',monospace;">game-lab — demo</span>
+          </div>
+          <div class="terminal-body" id="terminal-body">
+            <div class="terminal-line active">
+              <span class="terminal-prefix">$</span>
+              <span class="terminal-text">Click "Run Demo" to start your session</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="progress-track">
+            <div class="progress-fill" id="demo-progress-fill" style="width:0%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span style="font-size:12px;color:var(--text-dim);" id="demo-progress-text">0% complete</span>
+            <span class="xp-pill" id="demo-xp-earned">+0 XP earned</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn-primary" style="flex:1;justify-content:center;" id="demo-btn" onclick="runDemo()">
+            Run Demo
+            <span class="btn-arrow">▶</span>
+          </button>
+          <button class="btn-secondary" id="interact-btn" onclick="interactDemo()" disabled style="opacity:0.4;cursor:not-allowed;">
+            Next Step
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider" style="max-width:1400px;margin:0 auto;"></div>
+
+  <!-- ─── FEATURES BENTO ─────────────────────────────────────── -->
+  <section id="features" style="padding:100px 40px;max-width:1400px;margin:0 auto;">
+    <div style="max-width:560px;margin-bottom:64px;">
+      <div class="eyebrow reveal">Features</div>
+      <h2 class="reveal" style="font-size:clamp(32px,4vw,52px);margin-bottom:16px;">Everything you need to build at elite level.</h2>
+      <p class="reveal" style="font-size:15px;color:var(--text-muted);line-height:1.7;">Not just another course platform. Game Lab is a fully engineered progression system built around how developers actually learn.</p>
+    </div>
+
+    <div class="bento-grid">
+      <!-- Large card: XP Engine -->
+      <div class="bento-1 glass-card reveal" style="padding:40px;min-height:280px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div style="width:48px;height:48px;border-radius:14px;background:var(--primary-lo);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3 style="font-size:22px;font-weight:700;margin-bottom:10px;">XP Engine</h3>
+          <p style="font-size:14px;color:var(--text-muted);line-height:1.6;max-width:320px;">Every action earns points. Every point counts. A finely tuned progression system that keeps you in flow state.</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:24px;">
+          <div class="xp-pill">Levels 1–100</div>
+          <div class="xp-pill" style="background:var(--cyan-lo);border-color:rgba(34,211,238,0.2);color:var(--cyan);">Real-time</div>
+        </div>
+      </div>
+
+      <!-- Smaller card: Guilds -->
+      <div class="bento-2 glass-card reveal" style="padding:32px;min-height:280px;display:flex;flex-direction:column;">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cta)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3 style="font-size:20px;margin-bottom:8px;">Guilds</h3>
+        <p style="font-size:14px;color:var(--text-muted);line-height:1.6;flex:1;">Team up with developers worldwide. Compete in guild wars and collective challenges.</p>
+      </div>
+
+      <!-- Smaller card: AI Mentor -->
+      <div class="bento-3 glass-card reveal" style="padding:32px;min-height:220px;display:flex;flex-direction:column;">
+        <div style="width:48px;height:48px;border-radius:14px;background:var(--cyan-lo);border:1px solid rgba(34,211,238,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cyan)"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </div>
+        <h3 style="font-size:20px;margin-bottom:8px;">AI Code Review</h3>
+        <p style="font-size:14px;color:var(--text-muted);line-height:1.6;flex:1;">Instant, context-aware feedback on every submission. Learn from your mistakes in real time.</p>
+      </div>
+
+      <!-- Large card: Real Projects -->
+      <div class="bento-4 glass-card reveal" style="padding:40px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div style="width:48px;height:48px;border-radius:14px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--green)"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <h3 style="font-size:22px;margin-bottom:10px;">Ship real products</h3>
+          <p style="font-size:14px;color:var(--text-muted);line-height:1.6;max-width:400px;">Every project you complete goes live. Real games. Real apps. A portfolio that proves your skills beyond certificates.</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:24px;flex-wrap:wrap;">
+          <div style="padding:4px 12px;border-radius:9999px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);font-size:11px;font-weight:600;color:var(--green);">React</div>
+          <div style="padding:4px 12px;border-radius:9999px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);font-size:11px;font-weight:600;color:var(--green);">Unity</div>
+          <div style="padding:4px 12px;border-radius:9999px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);font-size:11px;font-weight:600;color:var(--green);">Three.js</div>
+          <div style="padding:4px 12px;border-radius:9999px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);font-size:11px;font-weight:600;color:var(--green);">Godot</div>
+        </div>
+      </div>
+
+      <!-- Three small bottom cards -->
+      <div class="bento-5 glass-card reveal" style="padding:28px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--purple)"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M15.5 9H17v1.5c0 .83-.67 1.5-1.5 1.5S14 11.33 14 10.5 14.67 9 15.5 9z"/><path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"/><path d="M8.5 15H7v-1.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+        </div>
+        <h3 style="font-size:17px;margin-bottom:8px;">Streak System</h3>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Daily coding habits that compound into expertise over time.</p>
+      </div>
+
+      <div class="bento-6 glass-card reveal" style="padding:28px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--cta-lo);border:1px solid rgba(249,115,22,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cta)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h3 style="font-size:17px;margin-bottom:8px;">Verified Badges</h3>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">NFT-backed credentials recruiters can verify on-chain.</p>
+      </div>
+
+      <div class="bento-7 glass-card reveal" style="padding:28px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--primary-lo);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--primary)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        </div>
+        <h3 style="font-size:17px;margin-bottom:8px;">Analytics</h3>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Deep insight into your learning velocity and skill gaps.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider" style="max-width:1400px;margin:0 auto;"></div>
+
+  <!-- ─── PRICING ────────────────────────────────────────────── -->
+  <section id="pricing" style="padding:100px 40px;max-width:1400px;margin:0 auto;">
+    <div style="text-align:center;max-width:520px;margin:0 auto 64px;">
+      <div class="eyebrow reveal" style="display:inline-flex;">Choose your tier</div>
+      <h2 class="reveal" style="font-size:clamp(32px,4vw,52px);margin-bottom:16px;">Simple, transparent pricing.</h2>
+      <p class="reveal" style="font-size:15px;color:var(--text-muted);line-height:1.7;">Start free. Upgrade when you're ready. No dark patterns.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:960px;margin:0 auto;" id="pricing-grid">
+      <!-- Starter -->
+      <div class="pricing-card reveal">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:700;margin-bottom:16px;">Starter</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-size:44px;font-weight:700;letter-spacing:-0.04em;margin-bottom:4px;">Free</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:32px;">Forever free. No card needed.</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:32px;">
+          <div class="check-item"><div class="check-icon">✓</div>5 courses</div>
+          <div class="check-item"><div class="check-icon">✓</div>Basic XP system</div>
+          <div class="check-item"><div class="check-icon">✓</div>Community access</div>
+          <div class="check-item"><div class="check-icon">✓</div>Public leaderboard</div>
+        </div>
+        <button class="btn-secondary" style="width:100%;justify-content:center;">Get started free</button>
+      </div>
+
+      <!-- Pro -->
+      <div class="pricing-card featured reveal">
+        <div class="price-badge">Most Popular</div>
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--primary);font-weight:700;margin-bottom:16px;">Pro</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:44px;font-weight:700;letter-spacing:-0.04em;">$9</span>
+          <span style="font-size:15px;color:var(--text-muted)">/mo</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:32px;">Billed annually. Cancel anytime.</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:32px;">
+          <div class="check-item"><div class="check-icon">✓</div>Unlimited courses</div>
+          <div class="check-item"><div class="check-icon">✓</div>Advanced projects</div>
+          <div class="check-item"><div class="check-icon">✓</div>AI code review</div>
+          <div class="check-item"><div class="check-icon">✓</div>Verified badges</div>
+          <div class="check-item"><div class="check-icon">✓</div>Guild creation</div>
+        </div>
+        <button class="btn-cta" style="width:100%;justify-content:center;">Upgrade to Pro</button>
+      </div>
+
+      <!-- Elite -->
+      <div class="pricing-card reveal">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:700;margin-bottom:16px;">Elite</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:4px;">
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:44px;font-weight:700;letter-spacing:-0.04em;">$24</span>
+          <span style="font-size:15px;color:var(--text-muted)">/mo</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:32px;">For serious builders.</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:32px;">
+          <div class="check-item"><div class="check-icon">✓</div>Everything in Pro</div>
+          <div class="check-item"><div class="check-icon">✓</div>1-on-1 mentorship</div>
+          <div class="check-item"><div class="check-icon">✓</div>Custom projects</div>
+          <div class="check-item"><div class="check-icon">✓</div>Job placement assist</div>
+        </div>
+        <button class="btn-secondary" style="width:100%;justify-content:center;">Go Elite</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ──────────────────────────────────────────────────── -->
+  <section style="padding:40px 40px 120px;max-width:1400px;margin:0 auto;">
+    <div style="border-radius:32px;background:linear-gradient(135deg,rgba(99,102,241,0.15) 0%,rgba(99,102,241,0.05) 100%);border:1px solid rgba(99,102,241,0.2);padding:80px 60px;text-align:center;position:relative;overflow:hidden;">
+      <div class="orb" style="width:400px;height:400px;background:rgba(99,102,241,0.1);top:-100px;left:50%;transform:translateX(-50%);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="eyebrow reveal" style="display:inline-flex;margin-bottom:28px;">Ready when you are</div>
+        <h2 class="reveal" style="font-size:clamp(36px,5vw,68px);margin-bottom:20px;">Stop watching tutorials.<br/>Start building.</h2>
+        <p class="reveal" style="font-size:16px;color:var(--text-muted);max-width:440px;margin:0 auto 40px;line-height:1.7;">Join 50,000 developers who chose Game Lab to level up their careers through real, shipped work.</p>
+        <div class="reveal" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn-cta">
+            Start for free
+            <span style="width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;font-size:12px;">→</span>
+          </button>
+          <button class="btn-secondary">Watch trailer</button>
+        </div>
+        <p class="reveal" style="font-size:12px;color:var(--text-dim);margin-top:20px;">No credit card · Cancel anytime · Instant access</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ────────────────────────────────────────────────── -->
+  <footer style="border-top:1px solid var(--border);padding:48px 40px;max-width:1400px;margin:0 auto;">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px;">
+      <div>
+        <div class="nav-logo" style="margin-bottom:16px;">
+          <div class="nav-logo-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1L13 4V10L7 13L1 10V4L7 1Z" fill="white" fill-opacity="0.9"/>
+            </svg>
+          </div>
+          Game Lab
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;max-width:240px;">Level up your development skills through gamified, project-based learning.</p>
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);font-weight:700;margin-bottom:16px;">Product</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;transition:color 150ms;">Features</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;transition:color 150ms;">Pricing</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;transition:color 150ms;">Changelog</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);font-weight:700;margin-bottom:16px;">Community</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Discord</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Twitter</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">GitHub</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim);font-weight:700;margin-bottom:16px;">Legal</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Privacy</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Terms</a>
+          <a href="#" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:24px;border-top:1px solid var(--border);">
+      <span style="font-size:12px;color:var(--text-dim);">© 2024 Game Lab. All rights reserved.</span>
+      <span style="font-size:12px;color:var(--text-dim);">Built with obsessive craft.</span>
+    </div>
+  </footer>
+
+  <script>
+    // ─── STATE ────────────────────────────────────────────────
+    let xp = 0;
+    let demoRunning = false;
+    let demoStep = 0;
+    let demoStartTime = null;
+
+    const terminalLines = [
+      { prefix: '$', text: 'npm create game-lab@latest my-project', type: 'text' },
+      { prefix: '>', text: 'Scaffolding project structure...', type: 'text' },
+      { prefix: '>', text: 'Installing dependencies (12 packages)', type: 'text' },
+      { prefix: '✓', text: 'Project ready! Starting engine...', type: 'success' },
+      { prefix: '>', text: 'Calculating XP multiplier... 1.5x active', type: 'text' },
+      { prefix: '✓', text: 'Level complete! +100 XP earned.', type: 'success' },
+    ];
+
+    // ─── XP UPDATE ────────────────────────────────────────────
+    function addXp(amount) {
+      xp += amount;
+      const level = Math.floor(xp / 100) + 1;
+      const pct = (xp % 100);
+
+      document.getElementById('hero-xp').textContent = `${xp} XP · Lv.${level}`;
+      document.getElementById('hero-progress').style.width = pct + '%';
+      document.getElementById('nav-xp-text').textContent = `${xp} XP`;
+      document.getElementById('nav-xp-fill').style.width = pct + '%';
+      document.getElementById('my-xp-pill').textContent = `${xp} XP`;
+      document.getElementById('my-rank').textContent = xp > 0 ? `#${Math.max(4, Math.ceil(50000 / (xp + 1)))}` : '#—';
+    }
+
+    // ─── ACHIEVEMENT POPUP ────────────────────────────────────
+    function showAchievement(icon, name, xpAmount) {
+      const popup = document.getElementById('achievement-popup');
+      document.getElementById('popup-icon').textContent = icon;
+      document.getElementById('popup-name').textContent = name;
+      document.getElementById('popup-xp').textContent = `+${xpAmount} XP earned`;
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 3500);
+    }
+
+    function unlockAchievement(id, statusId, icon, name, xpAmount) {
+      const badge = document.getElementById(id);
+      const status = document.getElementById(statusId);
+      if (badge && !badge.classList.contains('unlocked')) {
+        badge.classList.add('unlocked');
+        if (status) status.textContent = 'Unlocked';
+        if (status) status.style.color = 'var(--primary)';
+        showAchievement(icon, name, xpAmount);
+        addXp(xpAmount);
+      }
+    }
+
+    // ─── DEMO ──────────────────────────────────────────────────
+    function runDemo() {
+      if (demoRunning) return;
+      demoRunning = true;
+      demoStartTime = Date.now();
+      demoStep = 0;
+
+      const btn = document.getElementById('demo-btn');
+      const interactBtn = document.getElementById('interact-btn');
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      interactBtn.disabled = false;
+      interactBtn.style.opacity = '1';
+      interactBtn.style.cursor = 'pointer';
+
+      const body = document.getElementById('terminal-body');
+      body.innerHTML = '';
+
+      advanceDemoStep();
+    }
+
+    function advanceDemoStep() {
+      if (demoStep >= terminalLines.length) {
+        finishDemo();
+        return;
+      }
+
+      const body = document.getElementById('terminal-body');
+      const line = terminalLines[demoStep];
+      const el = document.createElement('div');
+      el.className = 'terminal-line';
+      el.innerHTML = `
+        <span class="${line.type === 'success' ? 'terminal-success' : 'terminal-prefix'}">${line.prefix}</span>
+        <span class="${line.type === 'success' ? 'terminal-success' : 'terminal-text'}">${line.text}</span>
+      `;
+      body.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('active'));
+
+      const progress = ((demoStep + 1) / terminalLines.length) * 100;
+      document.getElementById('demo-progress-fill').style.width = progress + '%';
+      document.getElementById('demo-progress-text').textContent = Math.round(progress) + '% complete';
+
+      const xpEarned = (demoStep + 1) * 15;
+      document.getElementById('demo-xp-earned').textContent = `+${xpEarned} XP earned`;
+      addXp(15);
+
+      demoStep++;
+    }
+
+    function interactDemo() {
+      if (!demoRunning || demoStep >= terminalLines.length) return;
+      advanceDemoStep();
+    }
+
+    function finishDemo() {
+      demoRunning = false;
+      const elapsed = (Date.now() - demoStartTime) / 1000;
+
+      document.getElementById('interact-btn').disabled = true;
+      document.getElementById('interact-btn').style.opacity = '0.4';
+      document.getElementById('interact-btn').style.cursor = 'not-allowed';
+      document.getElementById('demo-btn').disabled = false;
+      document.getElementById('demo-btn').style.opacity = '1';
+      document.getElementById('demo-btn').querySelector('.btn-arrow').textContent = '↺';
+
+      unlockAchievement('ach-1', 'ach-1-status', '🏆', 'First Steps', 100);
+
+      if (elapsed < 30) {
+        setTimeout(() => unlockAchievement('ach-2', 'ach-2-status', '⚡', 'Speed Runner', 150), 1500);
+      }
+
+      if (demoStep === terminalLines.length) {
+        setTimeout(() => unlockAchievement('ach-3', 'ach-3-status', '🎯', 'Sharp Shooter', 200), 3000);
+      }
+    }
+
+    // ─── SCROLL UTILS ─────────────────────────────────────────
+    function scrollTo(id) {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ─── SCROLL REVEAL ─────────────────────────────────────────
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          const delay = entry.target.dataset.delay || 0;
+          setTimeout(() => entry.target.classList.add('visible'), delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach((el, i) => {
+      const siblings = el.parentElement?.querySelectorAll('.reveal');
+      const idx = siblings ? Array.from(siblings).indexOf(el) : 0;
+      el.dataset.delay = idx * 80;
+      observer.observe(el);
+    });
+
+    // ─── HERO SOCIAL PROOF ─────────────────────────────────────
+    // Render avatars properly since we can't use template literals in innerHTML like above
+    const heroLeft = document.querySelector('[style*="flex:1;min-width:0"]');
+    const socialProofEl = heroLeft ? heroLeft.querySelector('[style*="align-items:center;gap:16px"]') : null;
+    if (socialProofEl) {
+      const avatarContainer = socialProofEl.querySelector('[style*="display:flex"]');
+      if (avatarContainer) {
+        avatarContainer.innerHTML = '';
+        ['AX','MB','CL','DK','EW'].forEach((initials, i) => {
+          const el = document.createElement('div');
+          el.style.cssText = `width:30px;height:30px;border-radius:50%;background:var(--surface-2);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text-muted);${i > 0 ? 'margin-left:-8px;' : ''}`;
+          el.textContent = initials;
+          avatarContainer.appendChild(el);
+        });
+      }
+    }
+  </script>
+</body>
+</html>

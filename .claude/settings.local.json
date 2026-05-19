@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills *)",
+      "Bash(mkdir -p ~/.npm-global)",
+      "Bash(npm config *)",
+      "Bash(echo 'export PATH=~/.npm-global/bin:$PATH')",
+      "Bash(ls ~/.claude/skills/ui-ux-pro-max/)",
+      "Bash(ls ~/.claude/)",
+      "Bash(find /Users/oluwadamilare -name \"ui-ux-pro-max\" -type d 2>/dev/null)",
+      "Bash(mkdir -p ~/.claude/skills)",
+      "Bash(cp -r ~/.claude/.claude/skills/ui-ux-pro-max ~/.claude/skills/)",
+      "Bash(npx skillfish *)",
+      "Bash(find /Users/oluwadamilare/Desktop -name \"game-lab*.html\" 2>/dev/null)",
+      "Bash(mkdir -p \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.claude\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls ~/.claude/skills/ 2>/dev/null | sort && echo \"---\" && ls ~/.agents/skills/ 2>/dev/null | sort)",
+      "Bash(gh auth *)",
+      "Bash(curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg)",
+      "Bash(sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg)",
+      "Bash(dpkg --print-architecture)",
+      "Bash(echo \"deb [arch=$\\(dpkg --print-architecture\\) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\")",
+      "Bash(sudo tee /etc/apt/sources.list.d/github-cli.list)",
+      "Bash(sudo apt update)",
+      "Bash(sudo apt install gh)",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)"
+    ]
+  }
+}

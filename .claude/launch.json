@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game-lab-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "3456", "/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT"],
+      "port": 3456
+    }
+  ]
+}
