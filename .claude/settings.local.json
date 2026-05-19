@@ -27,7 +27,12 @@
       "Bash(git remote *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Read(//private/tmp/pm-skills-explore/**)",
+      "Bash(git rm *)",
+      "Bash(rm .gitmodules)"
     ]
   }
 }
