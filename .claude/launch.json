@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "3456", "/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT"],
       "port": 3456
+    },
+    {
+      "name": "agency-mart",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT/.claude/worktrees/stoic-elbakyan-c7b508/agency-mart", "dev", "--port", "5174", "--host"],
+      "port": 5174
     }
   ]
 }
