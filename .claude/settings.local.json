@@ -49,7 +49,12 @@
       "Bash(node -e ' *)",
       "Bash(pnpm exec *)",
       "Bash(curl -s http://localhost:5173)",
-      "Bash(pkill -f \"vite.*5174\")"
+      "Bash(pkill -f \"vite.*5174\")",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(ls /Users/oluwadamilare/.claude/)",
+      "Bash(rm -rf /Users/oluwadamilare/.claude/skills/ui-ux-pro-max)",
+      "Bash(find \"/Users/oluwadamilare/Desktop/ABRAHAM'S PROJECT\" -name \"PRODUCT_PLAYBOOK.md\" 2>/dev/null)"
     ]
   }
 }
