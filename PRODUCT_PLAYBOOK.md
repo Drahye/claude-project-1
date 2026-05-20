@@ -159,8 +159,7 @@ Comply         Prioritize     & Learn       Grow           Operate        Scale
 ### Visual Style
 | Skill | What It Does |
 |-------|-------------|
-| `ui-ux-pro-max` | Comprehensive UI/UX design |
-| `design-taste-frontend` | Taste-driven frontend design |
+| `design-taste-frontend` | Taste-driven, comprehensive UI/UX design |
 | `stitch-design-taste` | Refine and elevate design quality |
 | `high-end-visual-design` | Premium, polished visual design |
 | `minimalist-ui` | Minimalist UI principles and patterns |
@@ -536,7 +535,7 @@ These skills apply in every phase. Invoke them any time.
 Phase 0: tool-foundation-sprint-brief → foundation-lean-canvas → tam-sam-som-calculator
 Phase 1: discovery-process → customer-research → discover-competitive-analysis
 Phase 2: define-problem-statement → positioning-statement → define-hypothesis
-Phase 3: design-systems → ui-ux-pro-max → micro-interactions
+Phase 3: design-systems → design-taste-frontend → micro-interactions
 Phase 5: threat-modeling → privacy-compliance → legal-copy
 Phase 4: api-design → database-design → auth-design → cloud-infrastructure → devops-cicd
 Phase 6: deliver-prd → roadmap-planning → user-story-mapping
@@ -550,7 +549,7 @@ Phase 10: iterate-retrospective → iterate-pivot-decision
 ```
 Phase 1: customer-research → discovery-interview-prep
 Phase 2: define-opportunity-tree → define-hypothesis
-Phase 3: storyboard → ui-ux-pro-max → micro-interactions
+Phase 3: storyboard → design-taste-frontend → micro-interactions
 Phase 5: threat-modeling → secure-coding
 Phase 4: api-design → deliver-acceptance-criteria → webapp-testing
 Phase 6: deliver-prd → user-story-splitting → prioritization-advisor
