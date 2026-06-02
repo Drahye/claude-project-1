@@ -1,1 +1,6 @@
 ui-ux-pro-max-skill/
+
+# Local Claude Code config (may contain tokens)
+.claude/settings.local.json
+.claude/launch.json
+scholr-app/.claude/
