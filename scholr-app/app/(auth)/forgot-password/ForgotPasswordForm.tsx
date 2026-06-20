@@ -69,7 +69,7 @@ export default function ForgotPasswordForm() {
           <p className="text-xs leading-relaxed" style={{ color: "var(--c-text-mid)" }}>
             <strong style={{ color: "var(--c-text)" }}>Don&apos;t see it?</strong> Check your{" "}
             <strong style={{ color: "var(--c-text)" }}>spam</strong> or{" "}
-            <strong style={{ color: "var(--c-text)" }}>promotions</strong> folder — it can take a minute to arrive.
+            <strong style={{ color: "var(--c-text)" }}>promotions</strong> folder. It can take a minute to arrive.
           </p>
         </div>
 

@@ -47,7 +47,7 @@ export const PLANS = [
       "Up to 500 students",
       "Unlimited teachers",
       "AI Report Writer (Claude)",
-      "Weekly Intelligence Report",
+      "Friday story",
       "Analytics dashboard",
       "Fee & invoice manager",
       "Priority support + onboarding call",
@@ -138,9 +138,9 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     icon:  Sparkles,
     rows: [
       { label: "AI Report Writer",        free: false,         pro: true,          enterprise: true,        note: "Powered by Claude" },
-      { label: "Weekly Intelligence",     free: false,         pro: true,          enterprise: true },
+      { label: "Friday story",            free: false,         pro: true,          enterprise: true },
       { label: "AI Lesson Summariser",    free: false,         pro: true,          enterprise: true },
-      { label: "Predictive Attendance",   free: false,         pro: true,          enterprise: true },
+      { label: "Gentle early alerts",     free: false,         pro: true,          enterprise: true },
       { label: "Analytics dashboard",     free: false,         pro: true,          enterprise: true },
       { label: "Fee & invoice manager",   free: false,         pro: true,          enterprise: true },
       { label: "Custom AI tone training", free: false,         pro: false,         enterprise: true },
@@ -162,11 +162,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
 ]
 
 export const FAQ = [
-  { q: "Do parents need to download an app?", a: "No. Scholr is a Progressive Web App. Parents open a link from their invitation email and tap 'Add to Home Screen' in Safari or Chrome — it looks and feels like a native app, no App Store visit required." },
-  { q: "What does the 14-day Pro trial include?", a: "Every Pro feature — AI Report Writer, Weekly Intelligence Report, Fee Manager, full Analytics, SMS fallback — at zero cost. No credit card required to start." },
+  { q: "Do parents need to download an app?", a: "No. Scholr is a Progressive Web App. Parents open a link from their invitation email and tap 'Add to Home Screen' in Safari or Chrome. It looks and feels like a native app, no App Store visit required." },
+  { q: "What does the 14-day Pro trial include?", a: "Every Pro feature: AI Report Writer, your child's Friday story, Fee Manager, full Analytics, SMS fallback, at zero cost. No credit card required to start." },
   { q: "Is Scholr FERPA and GDPR compliant?", a: "Yes. Student data is stored in isolated school accounts, never shared with third parties. Scholr supports full data deletion on offboarding and is compliant with FERPA (US) and GDPR (UK/EU)." },
   { q: "Can we import existing student data?", a: "Yes. Scholr accepts CSV imports for students, classes, and parent contacts. A guided setup wizard completes the import in under 10 minutes." },
-  { q: "Can we cancel anytime?", a: "Anytime — two clicks from your billing settings. You retain access until the end of your paid period and your data is fully exportable before deletion." },
+  { q: "Can we cancel anytime?", a: "Anytime, two clicks from your billing settings. You retain access until the end of your paid period and your data is fully exportable before deletion." },
   { q: "Does Scholr work in Nigeria, Ghana, and Africa?", a: "Yes. Scholr was designed with African schools as a primary use case. Optimised for mid-range Android devices and 3G connections, supporting Naira, Cedis, Pounds, and Dollars." },
   { q: "Is there a setup fee?", a: "None. You pay only the monthly or annual subscription. Pro schools also receive a complimentary onboarding call at no extra cost." },
 ]

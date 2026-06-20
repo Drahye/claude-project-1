@@ -243,7 +243,7 @@ export default async function ParentDashboard() {
           {/* Weekly report card */}
           {weeklyReport ? (
             <section>
-              <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-muted)" }}>Weekly Intelligence Report</h2>
+              <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-muted)" }}>Friday story</h2>
               <div className="card-float p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="badge badge-indigo">✦ PRO · AI Generated</span>

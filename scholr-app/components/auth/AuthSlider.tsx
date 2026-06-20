@@ -69,7 +69,7 @@ function AIReportVisual() {
       <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(124,58,237,0.25)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-2">
           <Sparkles size={13} className="text-violet-300" />
-          <span className="text-xs font-bold text-violet-300">Weekly Intelligence Report</span>
+          <span className="text-xs font-bold text-violet-300">Friday story</span>
         </div>
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/30 text-violet-200">AI · Claude</span>
       </div>
