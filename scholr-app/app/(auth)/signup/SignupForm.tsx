@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Loader2, CheckCircle2, LayoutDashboard, UserPlus } from "lucide-react"
+import { Eye, EyeOff, Loader2, CheckCircle2, LayoutDashboard, UserPlus, Inbox } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import GoogleButton, { OrDivider } from "@/components/auth/GoogleButton"
 
@@ -65,21 +65,37 @@ export default function SignupForm() {
       return
     }
 
-    const { error: err } = await createClient().auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    })
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, fullName }),
+      })
+      const json = await res.json() as { ok?: boolean; error?: string; fallback?: boolean }
 
-    setLoading(false)
+      if (!res.ok || !json.ok) {
+        setLoading(false)
+        setError(json.error ?? "Could not create your account. Please try again.")
+        return
+      }
 
-    if (err) {
-      setError(err.message)
-    } else {
+      // No verified Resend domain yet → use Supabase's built-in confirmation email.
+      if (json.fallback) {
+        const { error: err } = await createClient().auth.signUp({
+          email, password,
+          options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/api/auth/callback` },
+        })
+        setLoading(false)
+        if (err) setError(err.message)
+        else setSuccess(true)
+        return
+      }
+
+      setLoading(false)
       setSuccess(true)
+    } catch {
+      setLoading(false)
+      setError("Network error. Please check your connection and try again.")
     }
   }
 
@@ -167,6 +183,19 @@ export default function SignupForm() {
           <strong style={{ color: "var(--c-text)" }}>{email}</strong>.
           <br />Click the link to activate your account.
         </p>
+
+        <div
+          className="mt-5 mx-auto max-w-sm flex items-start gap-2.5 text-left px-4 py-3 rounded-xl"
+          style={{ background: "var(--c-gold-bg)", border: "1px solid color-mix(in oklch, var(--c-gold) 25%, transparent)" }}
+        >
+          <Inbox size={16} style={{ color: "var(--c-gold)", flexShrink: 0, marginTop: 1 }} />
+          <p className="text-xs leading-relaxed" style={{ color: "var(--c-text-mid)" }}>
+            <strong style={{ color: "var(--c-text)" }}>Don&apos;t see it?</strong> Check your{" "}
+            <strong style={{ color: "var(--c-text)" }}>spam</strong> or{" "}
+            <strong style={{ color: "var(--c-text)" }}>promotions</strong> folder — it can take a minute to arrive. Mark it &ldquo;not spam&rdquo; so future Scholr emails land in your inbox.
+          </p>
+        </div>
+
         <p className="mt-6 text-sm" style={{ color: "var(--c-text-muted)" }}>
           Already confirmed?{" "}
           <Link href="/login" className="font-semibold" style={{ color: "var(--c-indigo)" }}>

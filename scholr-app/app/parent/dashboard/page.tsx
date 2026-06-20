@@ -3,10 +3,11 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { formatDate, avatarColor, getInitials } from "@/lib/utils"
 import Link from "next/link"
-import { CheckCircle2, XCircle, AlertTriangle, BookOpen, MessageSquare, TrendingUp, Calendar, Bell, ChevronRight, Users } from "lucide-react"
+import { CheckCircle2, XCircle, AlertTriangle, BookOpen, MessageSquare, TrendingUp, Calendar, Bell, ChevronRight, Users, ClipboardCheck } from "lucide-react"
 import EmptyState from "@/components/shared/EmptyState"
 import type { WeeklyReport, Attendance, Homework, Notification } from "@/types/database"
 import ParentWelcomeGuide from "@/components/parent/WelcomeGuide"
+import { Spotlight, StatTile, Reveal, AlertsPill } from "@/components/shared/DashboardKit"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
@@ -96,6 +97,13 @@ export default async function ParentDashboard() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
 
   const unreadCount = notifications.filter(n => !n.is_read).length
+  const firstName = (parentProfile?.full_name ?? "there").split(" ")[0]
+
+  // Weekly attendance across all children (feeds the spotlight + stats)
+  const weekPresent = recentAttendance.filter(a => a.status === "present" || a.status === "late").length
+  const weekRecords = recentAttendance.length
+  const weekPct = weekRecords > 0 ? Math.round((weekPresent / weekRecords) * 100) : null
+  const weekAbsent = recentAttendance.filter(a => a.status === "absent").length
 
   // Quick check: does this parent have any message threads?
   const { count: threadCount } = await supabase
@@ -105,31 +113,58 @@ export default async function ParentDashboard() {
   const hasMessages = (threadCount ?? 0) > 0
 
   return (
-    <div className="p-6 pb-24 md:pb-6 max-w-5xl mx-auto">
+    <div className="p-5 sm:p-7 pb-24 md:pb-8 max-w-[1180px] mx-auto">
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 pt-2">
+      <div className="flex items-start justify-between gap-4 mb-7 pt-1">
         <div>
-          <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-muted)" }}>{today}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}>
-            {greeting} 👋
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--c-text-muted)" }}>{today}</p>
+          <h1 className="text-[1.75rem] font-extrabold tracking-tight leading-none" style={{ color: "var(--c-text)", letterSpacing: "-0.03em" }}>
+            {greeting}, {firstName}
           </h1>
+          {students.length > 0 && (
+            <p className="text-sm mt-2" style={{ color: "var(--c-text-mid)" }}>
+              {students.length} child{students.length !== 1 ? "ren" : ""} at school
+            </p>
+          )}
         </div>
-        {unreadCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--c-indigo-bg)" }}>
-            <div className="w-2 h-2 rounded-full" style={{ background: "var(--c-indigo)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--c-indigo)" }}>{unreadCount} new alert{unreadCount > 1 ? "s" : ""}</span>
-          </div>
-        )}
+        <AlertsPill count={unreadCount} href="/parent/alerts" />
       </div>
 
       {/* First-run guide */}
-      <ParentWelcomeGuide
-        userName={parentProfile?.full_name ?? "there"}
-        userId={user.id}
-        hasChildren={students.length > 0}
-        hasMessages={hasMessages}
-      />
+      <Reveal delay={60} className="mb-6">
+        <ParentWelcomeGuide
+          userName={parentProfile?.full_name ?? "there"}
+          userId={user.id}
+          hasChildren={students.length > 0}
+          hasMessages={hasMessages}
+        />
+      </Reveal>
+
+      {/* Spotlight + stats */}
+      {students.length > 0 && (
+        <div className="grid lg:grid-cols-[1.05fr_1.25fr] gap-5 mb-5">
+          <Reveal delay={90}>
+            <Spotlight
+              eyebrow="This week"
+              ring={weekPct}
+              value={weekPct === null ? "—" : undefined}
+              headline={weekPct === null
+                ? "Attendance appears once records are in"
+                : weekAbsent === 0 ? "Perfect attendance this week" : `${weekAbsent} absence${weekAbsent !== 1 ? "s" : ""} this week`}
+              chips={weekRecords > 0 ? [`${weekPresent}/${weekRecords} days present`] : undefined}
+              ctaHref="/parent/children"
+              ctaLabel="View children"
+            />
+          </Reveal>
+          <div className="grid grid-cols-2 gap-4">
+            <StatTile label="Children"   value={students.length} icon={<Users size={15} />}         color="var(--c-indigo)"  delay={0} />
+            <StatTile label="Attendance" value={weekPct !== null ? `${weekPct}%` : "—"} icon={<ClipboardCheck size={15} />} color="var(--c-emerald)" delay={60} />
+            <StatTile label="Absences"   value={weekAbsent} icon={<XCircle size={15} />} color={weekAbsent > 0 ? "var(--c-red)" : "var(--c-text-muted)"} delay={120} />
+            <StatTile label="Homework due" value={homework.length} icon={<BookOpen size={15} />} color="var(--c-gold)" delay={180} />
+          </div>
+        </div>
+      )}
 
       {/* Children cards */}
       {students.length > 0 ? (
@@ -153,7 +188,7 @@ export default async function ParentDashboard() {
 
               return (
                 <Link key={student.id} href={`/parent/children/${student.id}`}
-                  className="group card p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  className="group card-float card-float-hover p-5"
                   style={{ textDecoration: "none" }}>
                   <div className="flex items-center gap-3 mb-4">
                     <div
@@ -203,13 +238,13 @@ export default async function ParentDashboard() {
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
         {/* Left column */}
-        <div className="space-y-6">
+        <div className="space-y-5">
 
           {/* Weekly report card */}
           {weeklyReport ? (
             <section>
               <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-muted)" }}>Weekly Intelligence Report</h2>
-              <div className="card p-5" style={{ borderLeft: "3px solid var(--c-indigo)" }}>
+              <div className="card-float p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="badge badge-indigo">✦ PRO · AI Generated</span>
                   <span className="text-xs" style={{ color: "var(--c-text-muted)" }}>
@@ -249,7 +284,7 @@ export default async function ParentDashboard() {
               <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--c-text-muted)" }}>Upcoming homework</h2>
             </div>
             {homework.length > 0 ? (
-              <div className="card divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
+              <div className="card-float divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
                 {homework.map((hw: any) => {
                   const dueDate  = new Date(hw.due_date)
                   const today    = new Date()
@@ -280,7 +315,7 @@ export default async function ParentDashboard() {
                 })}
               </div>
             ) : (
-              <div className="card px-5 py-8 text-center">
+              <div className="card-float px-5 py-8 text-center">
                 <CheckCircle2 size={24} className="mx-auto mb-2" style={{ color: "var(--c-emerald)" }} />
                 <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>All caught up!</p>
                 <p className="text-xs mt-1" style={{ color: "var(--c-text-muted)" }}>No pending homework due.</p>
@@ -309,7 +344,7 @@ export default async function ParentDashboard() {
                 return (
                   <div
                     key={n.id}
-                    className="card px-4 py-3 flex gap-3"
+                    className="card-float px-4 py-3 flex gap-3"
                     style={{ opacity: n.is_read ? 0.65 : 1 }}
                   >
                     <div
@@ -330,7 +365,7 @@ export default async function ParentDashboard() {
                 )
               })
             ) : (
-              <div className="card px-5 py-8 text-center">
+              <div className="card-float px-5 py-8 text-center">
                 <p className="text-sm" style={{ color: "var(--c-text-muted)" }}>No alerts yet.</p>
               </div>
             )}

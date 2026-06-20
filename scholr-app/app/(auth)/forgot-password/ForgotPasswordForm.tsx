@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
+import { Loader2, CheckCircle2, ArrowLeft, Inbox } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 export default function ForgotPasswordForm() {
@@ -15,14 +15,31 @@ export default function ForgotPasswordForm() {
     setError("")
     setLoading(true)
 
-    const { error: err } = await createClient().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    try {
+      const res = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const json = await res.json() as { ok?: boolean; error?: string; fallback?: boolean }
 
-    setLoading(false)
+      if (json.fallback) {
+        const { error: err } = await createClient().auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        })
+        setLoading(false)
+        if (err) setError(err.message)
+        else setSent(true)
+        return
+      }
 
-    if (err) setError(err.message)
-    else setSent(true)
+      setLoading(false)
+      if (!res.ok || !json.ok) setError(json.error ?? "Could not send the reset email. Please try again.")
+      else setSent(true)
+    } catch {
+      setLoading(false)
+      setError("Network error. Please check your connection and try again.")
+    }
   }
 
   if (sent) {
@@ -43,6 +60,19 @@ export default function ForgotPasswordForm() {
           <br />
           The link expires in 1 hour.
         </p>
+
+        <div
+          className="mt-5 mx-auto max-w-sm flex items-start gap-2.5 text-left px-4 py-3 rounded-xl"
+          style={{ background: "var(--c-gold-bg)", border: "1px solid color-mix(in oklch, var(--c-gold) 25%, transparent)" }}
+        >
+          <Inbox size={16} style={{ color: "var(--c-gold)", flexShrink: 0, marginTop: 1 }} />
+          <p className="text-xs leading-relaxed" style={{ color: "var(--c-text-mid)" }}>
+            <strong style={{ color: "var(--c-text)" }}>Don&apos;t see it?</strong> Check your{" "}
+            <strong style={{ color: "var(--c-text)" }}>spam</strong> or{" "}
+            <strong style={{ color: "var(--c-text)" }}>promotions</strong> folder — it can take a minute to arrive.
+          </p>
+        </div>
+
         <Link href="/login" className="inline-flex items-center gap-1.5 text-sm font-semibold mt-6" style={{ color: "var(--c-indigo)" }}>
           <ArrowLeft size={14} /> Back to sign in
         </Link>

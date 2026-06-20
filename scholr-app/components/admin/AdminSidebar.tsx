@@ -4,11 +4,12 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
-  Bell, Settings, LogOut, Shield, BarChart3, CreditCard, Images, MessageSquare,
+  Bell, Settings, LogOut, Shield, BarChart3, CreditCard, MessageSquare, Globe,
 } from "lucide-react"
 import { cn, getInitials, avatarColor } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ThemeToggle from "@/components/ThemeToggle"
+import MobileBottomNav from "@/components/shared/MobileBottomNav"
 
 const NAV = [
   { label: "Dashboard",   href: "/admin/dashboard",  icon: LayoutDashboard },
@@ -17,7 +18,7 @@ const NAV = [
   { label: "Classes",     href: "/admin/classes",     icon: BookOpen },
   { label: "Analytics",   href: "/admin/analytics",   icon: BarChart3 },
   { label: "Billing",     href: "/admin/billing",     icon: CreditCard },
-  { label: "Gallery",     href: "/admin/gallery",     icon: Images },
+  { label: "Customization", href: "/admin/school",    icon: Globe },
   { label: "Messages",    href: "/admin/messages",    icon: MessageSquare },
   { label: "Alerts",      href: "/admin/alerts",      icon: Bell },
   { label: "Settings",    href: "/admin/settings",    icon: Settings },
@@ -60,7 +61,7 @@ export default function AdminSidebar({ profile, badges = {} }: Props) {
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
       <aside
         className="hidden md:flex flex-col w-[240px] fixed inset-y-0 left-0 h-screen overflow-hidden z-40"
-        style={{ background: "var(--c-bg)", borderRight: "1px solid var(--c-border)" }}
+        style={{ background: "var(--c-bg)", boxShadow: "1px 0 0 var(--c-hairline), var(--shadow-card)" }}
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 h-16 shrink-0"
@@ -218,53 +219,15 @@ export default function AdminSidebar({ profile, badges = {} }: Props) {
         </div>
       </aside>
 
-      {/* ── Mobile bottom nav — horizontally scrollable, shows all items ──── */}
-      <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-50 overflow-x-auto"
-        style={{
-          height:     64,
-          background: "var(--c-bg)",
-          borderTop:  "1px solid var(--c-border)",
-          scrollbarWidth: "none",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        <div className="flex items-center h-full px-1 gap-1 min-w-max">
-          {NAV.map(({ label, href, icon: Icon }) => {
-            const active = pathname === href || (href !== "/admin/dashboard" && pathname.startsWith(href))
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="flex flex-col items-center justify-center gap-0.5 px-3 h-full min-w-[56px] transition-transform duration-150 active:scale-90"
-              >
-                <div
-                  className="relative w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200"
-                  style={{ background: active ? "var(--c-indigo-bg)" : "transparent" }}
-                >
-                  <Icon
-                    size={18}
-                    style={{ color: active ? "var(--c-indigo)" : "var(--c-text-muted)" }}
-                    strokeWidth={active ? 2.5 : 2}
-                  />
-                  {(badges[href] ?? 0) > 0 && (
-                    <span
-                      className="absolute -top-1 -right-1 inline-flex items-center justify-center text-[8px] font-bold rounded-full px-1"
-                      style={{ minWidth: 14, height: 14, background: "var(--c-indigo)", color: "white", border: "1.5px solid var(--c-bg)" }}
-                    >
-                      {badges[href] > 9 ? "9+" : badges[href]}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[9px] font-medium"
-                  style={{ color: active ? "var(--c-indigo)" : "var(--c-text-muted)" }}>
-                  {label}
-                </span>
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
+      {/* ── Mobile bottom nav — 4 tabs + More sheet ───────────────────────── */}
+      <MobileBottomNav
+        nav={NAV}
+        badges={badges}
+        dashboardHref="/admin/dashboard"
+        settingsHref="/admin/settings"
+        roleLabel="Admin"
+        profile={profile}
+      />
     </>
   )
 }

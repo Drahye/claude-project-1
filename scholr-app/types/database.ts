@@ -9,6 +9,13 @@ export type SubscriptionPlan = "free" | "starter" | "pro" | "enterprise"
 export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled"
 export type NotificationType = "absence" | "homework" | "message" | "report" | "fee" | "announcement"
 
+// A custom section a school can add to its public /{slug} page (paid feature)
+export interface ContentBlock {
+  id: string
+  title: string
+  body: string
+}
+
 // ─── Core Tables ──────────────────────────────────────────────────────────────
 
 export interface School {
@@ -18,7 +25,16 @@ export interface School {
   country: string                  // ISO 3166-1 alpha-2
   timezone: string                 // IANA timezone
   logo_url: string | null
-  primary_color: string | null
+  primary_color: string | null       // admin dashboard theme
+  public_color?: string | null       // public /{slug} page accent
+  theme?: string | null              // public page theme: aurora | editorial | campus
+  welcome_headline?: string | null   // public /{slug} page branding
+  welcome_subtext?: string | null
+  hero_image_url?: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  content_blocks?: ContentBlock[] | null  // custom public-page sections (paid)
+  hide_branding?: boolean | null           // remove "Powered by Scholr" (paid)
   subscription_plan: SubscriptionPlan
   subscription_status: SubscriptionStatus
   stripe_customer_id: string | null
@@ -43,6 +59,33 @@ export interface Profile {
   updated_at: string
 }
 
+export interface StudentMedical {
+  blood_group?: string
+  allergies?: string
+  conditions?: string
+  medications?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  doctor?: string
+  notes?: string
+}
+
+export interface StudentPersonal {
+  hobbies?: string
+  interests?: string
+  languages?: string
+  dietary?: string
+  about?: string
+}
+
+export interface StudentActivity {
+  id: string
+  name: string
+  category: string          // sport | swimming | club | creative | music | other
+  note?: string
+  added_by_role?: string    // teacher | admin
+}
+
 export interface Student {
   id: string
   school_id: string
@@ -52,6 +95,9 @@ export interface Student {
   gender: "male" | "female" | "other"
   photo_url: string | null
   is_active: boolean
+  medical?: StudentMedical | null      // admin + parent (migration 014)
+  personal?: StudentPersonal | null    // parent
+  activities?: StudentActivity[] | null // teacher
   created_at: string
   updated_at: string
 }

@@ -297,7 +297,7 @@ export default function DashboardTour({
             className="flex items-center gap-2 px-4 py-3 rounded-full text-sm font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95"
             style={{
               background: "var(--c-indigo)",
-              boxShadow: "0 8px 32px rgba(79,70,229,0.45)",
+              boxShadow: "0 8px 32px rgba(222,140,52,0.45)",
               animation: "beaconFloat 3s ease-in-out infinite",
             }}
           >
@@ -432,8 +432,8 @@ export default function DashboardTour({
           100% { transform: scale(1); }
         }
         @keyframes beaconFloat {
-          0%, 100% { transform: translateY(0); box-shadow: 0 8px 32px rgba(79,70,229,0.45); }
-          50%       { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(79,70,229,0.6); }
+          0%, 100% { transform: translateY(0); box-shadow: 0 8px 32px rgba(222,140,52,0.45); }
+          50%       { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(222,140,52,0.6); }
         }
         @keyframes tooltipIn {
           from { opacity: 0; transform: translateY(10px) scale(0.96); }

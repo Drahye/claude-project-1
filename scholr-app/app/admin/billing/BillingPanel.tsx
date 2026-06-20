@@ -295,7 +295,7 @@ export default function BillingPanel({ school, subscription, userId: _userId }: 
                 <div key={plan.id} className="relative rounded-2xl flex flex-col overflow-hidden"
                   style={{
                     background: "linear-gradient(145deg, var(--c-indigo) 0%, oklch(42% 0.20 280) 100%)",
-                    boxShadow: "0 16px 48px rgba(79,70,229,0.25)",
+                    boxShadow: "0 16px 48px rgba(222,140,52,0.25)",
                     padding: 2,
                   }}>
                   {plan.badge && (

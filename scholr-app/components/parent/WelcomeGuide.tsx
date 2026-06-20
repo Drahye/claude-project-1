@@ -79,8 +79,8 @@ export default function ParentWelcomeGuide({ userName, userId, hasChildren, hasM
 
   return (
     <div
-      className="rounded-2xl p-5 mb-6 relative overflow-hidden"
-      style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}
+      className="card-float p-5 relative overflow-hidden"
+      style={{ background: "var(--c-bg)", border: "1px solid var(--c-hairline)", boxShadow: "var(--shadow-card)" }}
     >
       {/* Dismiss */}
       <button

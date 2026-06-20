@@ -2,12 +2,13 @@ import { NextRequest, NextResponse }        from "next/server"
 import { createClient }                    from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 
-type UploadType = "logo" | "avatar" | "gallery"
+type UploadType = "logo" | "avatar" | "gallery" | "student"
 
 const BUCKET_MAP: Record<UploadType, string> = {
   logo:    "school-assets",
   avatar:  "avatars",
   gallery: "school-assets",
+  student: "student-photos",   // PRIVATE bucket — served via signed URLs only
 }
 
 const MAX_SIZE = 5 * 1024 * 1024   // 5 MB
@@ -46,12 +47,26 @@ export async function POST(req: NextRequest) {
   if ((type === "logo" || type === "gallery") && !isAdmin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  const studentId = (form.get("studentId") as string | null) ?? ""
+  if (type === "student") {
+    if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 })
+    // Admins may set any student's photo; a parent may set only their own child's.
+    if (!isAdmin) {
+      const svcCheck = serviceClient()
+      const { data: link } = await (svcCheck as any)
+        .from("parent_students").select("student_id")
+        .eq("parent_id", user.id).eq("student_id", studentId).maybeSingle()
+      if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
+
   // 3 — build storage path
   const ext    = file.name.split(".").pop()?.toLowerCase() ?? "jpg"
   const bucket = BUCKET_MAP[type]
   let   path: string
   if      (type === "logo")    path = `logos/${profile.school_id}.${ext}`
   else if (type === "avatar")  path = `avatars/${user.id}.${ext}`
+  else if (type === "student") path = `students/${studentId}.${ext}`
   else                         path = `gallery/${profile.school_id}/${Date.now()}.${ext}`
 
   // 4 — upload via service client
@@ -66,14 +81,19 @@ export async function POST(req: NextRequest) {
   if (uploadErr) {
     const msg = uploadErr.message ?? ""
     if (msg.toLowerCase().includes("bucket")) {
+      const access = type === "student" ? "PRIVATE (public access OFF)" : "Public access"
       return NextResponse.json({
-        error: `Storage bucket "${bucket}" not found. Create it in Supabase Dashboard → Storage with Public access.`,
+        error: `Storage bucket "${bucket}" not found. Create it in Supabase Dashboard → Storage with ${access}.`,
       }, { status: 500 })
     }
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 
-  // 5 — get public URL
+  // 5 — private student photos are referenced by PATH (signed on read); others
+  // are public buckets, so a public URL is fine.
+  if (type === "student") {
+    return NextResponse.json({ url: path, path })   // caller stores the path
+  }
   const { data: urlData } = svc.storage.from(bucket).getPublicUrl(path)
   const publicUrl = urlData.publicUrl
 

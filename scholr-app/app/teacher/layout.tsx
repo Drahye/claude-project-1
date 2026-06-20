@@ -26,7 +26,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--c-surface)" }}>
+    <div className="min-h-screen flex" style={{ background: "var(--c-canvas)" }}>
       <TeacherSidebar profile={profile} badges={badges} />
       <main className="flex-1 min-w-0 md:ml-[240px] min-h-screen overflow-y-auto">
         {children}

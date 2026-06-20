@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /teacher/
+Disallow: /parent/
+Disallow: /api/
+Disallow: /onboarding
+
+Host: https://getscholr.vercel.app
+Sitemap: https://getscholr.vercel.app/sitemap.xml

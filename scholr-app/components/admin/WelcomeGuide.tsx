@@ -88,11 +88,12 @@ export default function AdminWelcomeGuide({ userName, userId, schoolSlug, hasTea
 
   return (
     <div
-      className="rounded-2xl p-5 mb-6 relative"
+      className="card-float p-5 relative"
       data-tour="welcome-guide"
       style={{
-        background: "var(--c-surface)",
-        border: "1px solid var(--c-border)",
+        background: "var(--c-bg)",
+        border: "1px solid var(--c-hairline)",
+        boxShadow: "var(--shadow-card)",
         animation: "fadeSlideIn 500ms cubic-bezier(0.23,1,0.32,1) both",
       }}
     >
@@ -163,7 +164,7 @@ export default function AdminWelcomeGuide({ userName, userId, schoolSlug, hasTea
               href={step.href}
               className="flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.98]"
               style={{
-                background: "var(--c-bg)",
+                background: "var(--c-surface)",
                 opacity: done ? 0.5 : 1,
                 border: "1px solid var(--c-border)",
                 animation: `fadeSlideIn 400ms cubic-bezier(0.23,1,0.32,1) ${80 + i * 60}ms both`,

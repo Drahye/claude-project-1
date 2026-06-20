@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createClient as createPlainClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import type { Database } from "@/types/database"
 
@@ -25,24 +26,20 @@ export async function createClient() {
   )
 }
 
-/** Service-role client — server-only, never expose to client */
+/**
+ * Service-role client — server-only, never expose to client.
+ *
+ * IMPORTANT: this is a PLAIN supabase-js client with NO auth cookies. A
+ * cookie-aware (@supabase/ssr) client would send the logged-in user's JWT as
+ * the Authorization header, which overrides the service-role key — PostgREST
+ * then runs as that user and RLS is enforced (e.g. an admin couldn't insert
+ * another user's profile). Without cookies, Authorization = the service-role
+ * key, so RLS is correctly bypassed. Kept async for call-site compatibility.
+ */
 export async function createServiceClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient<Database>(
+  return createPlainClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {}
-        },
-      },
-    }
+    { auth: { persistSession: false, autoRefreshToken: false } },
   )
 }

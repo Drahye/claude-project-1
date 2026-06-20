@@ -1,12 +1,19 @@
 "use client"
 import { useState, useEffect, useRef, useCallback } from "react"
 import {
-  ArrowRight, Bell, BookOpen, Brain, BarChart3,
+  ArrowRight, Bell, BookOpen, BarChart3,
   Calendar, Check, ChevronDown, FileText,
   GraduationCap, Sparkles, Star, TrendingUp,
-  X, CheckCircle2,
+  X, CheckCircle2, Users, LayoutDashboard,
+  CreditCard, MessageSquare, Settings, Heart,
+  Image as ImageIcon, Quote, Building2,
 } from "lucide-react"
+import { gsap } from "gsap"
+import { ScrollTrigger } from "gsap/ScrollTrigger"
 import ThemeToggle from "@/components/ThemeToggle"
+import SmoothScroll from "./SmoothScroll"
+
+if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger)
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
@@ -26,280 +33,253 @@ function useReveal() {
   return { ref, visible }
 }
 
-function useCounter(target: number, duration = 1600) {
-  const [value, setValue] = useState(0)
-  const [started, setStarted] = useState(false)
-  const ref = useRef<HTMLElement>(null)
+// ─── Photo slot ───────────────────────────────────────────────────────────────
+// Renders a warm gradient placeholder until a real photo exists at `src`.
+// Drop a file at /public/landing/<name>.webp and it loads automatically, no
+// code change needed. Until then, the placeholder keeps the layout intact.
 
+function Photo({
+  src, alt, tag = "Photo", className = "", style, radius, priority = false,
+}: {
+  src?: string; alt: string; tag?: string; className?: string
+  style?: React.CSSProperties; radius?: number | string; priority?: boolean
+}) {
+  const [loaded, setLoaded] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+  // Cached images can finish loading before onLoad attaches, catch that on mount.
+  useEffect(() => {
+    const img = imgRef.current
+    if (img && img.complete && img.naturalWidth > 0) setLoaded(true)
+  }, [src])
+  // Priority images (above-the-fold hero) load eagerly and show immediately —
+  // no JS opacity gate and no dev label, so there's no placeholder flash.
+  return (
+    <div className={`w-photo ${className}`} style={{ borderRadius: radius, ...style }}>
+      {src && (
+        <img
+          ref={imgRef}
+          src={src}
+          alt={alt}
+          loading={priority ? "eager" : "lazy"}
+          // eslint-disable-next-line @next/next/no-img-element
+          fetchPriority={priority ? "high" : "auto"}
+          className={(loaded || priority) ? "loaded" : ""}
+          style={{ borderRadius: radius }}
+          onLoad={() => setLoaded(true)}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
+        />
+      )}
+      {!loaded && !priority && (
+        <span className="w-photo-tag">
+          <ImageIcon size={24} strokeWidth={1.8} aria-hidden />
+          <span style={{ fontSize: "0.66rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>{tag}</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── Motion helpers ───────────────────────────────────────────────────────────
+
+// Staggered scroll reveal. `variant` picks the direction: up (default), left, right, scale.
+function Rise({
+  children, delay = 0, className = "", style, as: Tag = "div", variant = "up",
+}: {
+  children: React.ReactNode; delay?: number; className?: string
+  style?: React.CSSProperties; as?: "div" | "li" | "span"
+  variant?: "up" | "left" | "right" | "scale"
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [seen, setSeen] = useState(false)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setStarted(true) },
-      { threshold: 0.5 }
+      ([e]) => { if (e.isIntersecting) { setSeen(true); obs.disconnect() } },
+      { threshold: 0.12, rootMargin: "-40px 0px" }
     )
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+  return (
+    <Tag ref={ref as never} className={`w-rise w-rise-${variant} ${seen ? "in" : ""} ${className}`} style={{ transitionDelay: `${delay}ms`, ...style }}>
+      {children}
+    </Tag>
+  )
+}
 
+// Gentle pointer-driven tilt/parallax for the hero collage (desktop only).
+function useTilt<T extends HTMLElement>(strength = 8) {
+  const ref = useRef<T>(null)
   useEffect(() => {
-    if (!started) return
-    let startTime: number | null = null
-    const step = (ts: number) => {
-      if (!startTime) startTime = ts
-      const progress = Math.min((ts - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 4)
-      setValue(Math.round(eased * target))
-      if (progress < 1) requestAnimationFrame(step)
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    if (window.matchMedia("(hover: none)").matches) return
+    let raf = 0
+    const onMove = (e: MouseEvent) => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect()
+        const x = (e.clientX - r.left) / r.width - 0.5
+        const y = (e.clientY - r.top) / r.height - 0.5
+        el.style.transform = `perspective(1100px) rotateY(${x * strength}deg) rotateX(${-y * strength * 0.6}deg)`
+      })
     }
-    requestAnimationFrame(step)
-  }, [started, target, duration])
-
-  return { ref, value }
+    const reset = () => { cancelAnimationFrame(raf); el.style.transform = "perspective(1100px) rotateY(0) rotateX(0)" }
+    const parent = el.parentElement ?? el
+    parent.addEventListener("mousemove", onMove)
+    parent.addEventListener("mouseleave", reset)
+    return () => { parent.removeEventListener("mousemove", onMove); parent.removeEventListener("mouseleave", reset); cancelAnimationFrame(raf) }
+  }, [strength])
+  return ref
 }
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const NAV = [
   { label: "Features", href: "#features" },
-  { label: "For Schools", href: "#roles" },
+  { label: "For families", href: "#roles" },
   { label: "Pricing", href: "/pricing" },
 ]
 
 const ROLE_TABS = [
   {
+    id: "admin",
+    label: "I run a school",
+    icon: Building2,
+    headline: "See how your whole school is doing, at a glance.",
+    sub: "One warm dashboard shows attendance, engagement and homework across every class. Lead with confidence, from anywhere.",
+    features: [
+      "A live School Health Score, in plain language",
+      "Fee invoicing with friendly automatic reminders",
+      "Engagement you can actually see, open rates and trends",
+      "Every campus, one calm login",
+    ],
+    cta: "Bring Scholr to your school",
+    ctaHref: "/signup",
+    accent: "oklch(56% 0.15 42)",
+  },
+  {
     id: "parent",
     label: "I'm a parent",
-    headline: "Know your child's school day the moment it happens.",
-    sub: "Absence alerts in under 2 minutes. Every homework deadline. Every report card. One feed, nothing buried.",
+    icon: Heart,
+    headline: "Be there for the small moments, even from work.",
+    sub: "A gold star in art. A missed homework. A note from the teacher. You'll know the moment it happens, gently, in one calm feed.",
     features: [
-      "Absence notification before you finish your morning meeting",
-      "Homework board sorted by urgency, not post date",
-      "Weekly Intelligence Report every Friday at 5pm",
-      "Direct, professional channel to the class teacher",
+      "A kind heads-up if your child is marked absent, within minutes",
+      "Homework, sorted by what's due next, never buried",
+      "Your child's Friday story, written with care",
+      "A warm, direct line to the class teacher",
     ],
-    mockupColor: "oklch(46% 0.22 264)",
-    accent: "oklch(96% 0.015 264)",
+    cta: "Find your child's school",
+    ctaHref: "/find-school",
+    accent: "var(--w-coral)",
   },
   {
     id: "teacher",
     label: "I'm a teacher",
-    headline: "Mark a full class present in under 60 seconds.",
-    sub: "Stop managing 14 parent groups on your personal phone. One professional inbox. AI handles the report writing.",
+    icon: GraduationCap,
+    headline: "More time for teaching. Less time on admin.",
+    sub: "Take the register in under a minute. Keep parents close without sharing your number. Let AI draft the reports, you keep the heart.",
     features: [
-      "Full class attendance with one tap per student",
-      "AI Report Writer saves 4+ hours every single term",
-      "Private inbox — no personal number shared with parents",
-      "Assignment board with file attachments and grade tracking",
+      "A whole class marked present in under 60 seconds",
+      "Report drafts that sound like you, hours saved each term",
+      "A calm, professional inbox, your phone stays yours",
+      "Homework, files and grades, all in one place",
     ],
-    mockupColor: "oklch(52% 0.17 162)",
-    accent: "oklch(97% 0.008 162)",
-  },
-  {
-    id: "admin",
-    label: "I run a school",
-    headline: "Your whole school in one number.",
-    sub: "The School Health Score tells you exactly how your school is performing — from any device, any timezone.",
-    features: [
-      "School Health Score updated in real-time",
-      "Fee invoicing with automatic overdue reminders",
-      "Engagement analytics: open rates, response times, trends",
-      "Multi-campus management from one login",
-    ],
-    mockupColor: "oklch(62% 0.15 65)",
-    accent: "oklch(97% 0.015 65)",
-  },
-]
-
-const AI_FEATURES = [
-  {
-    id: "ai-1",
-    icon: FileText,
-    tag: "Teachers",
-    title: "AI Report Writer",
-    body: "Describe a student in two sentences. Scholr generates a full, nuanced, subject-specific comment in your school's preferred tone. Saves 4+ hours per teacher, per term.",
-    featured: true,
-    lines: [
-      "Input: 'Kofi tries hard but struggles with fractions...'",
-      "",
-      "Generating report comment...",
-      "",
-      "\"Kofi demonstrates a commendable work ethic this term.",
-      "His enthusiasm for Mathematics is clear, and with",
-      "focused practice on fractions and decimal operations,",
-      "he is well-positioned for a strong second term.\"",
-    ],
-  },
-  {
-    id: "ai-2",
-    icon: Brain,
-    tag: "Parents",
-    title: "Weekly Intelligence Report",
-    body: "Every Friday at 5pm, parents receive a personalised card: attendance, homework submitted vs missed, teacher comments, and an AI-generated encouragement note.",
-    featured: false,
-    lines: [
-      "Amara's Week — Friday, 30 May",
-      "Attendance   5/5 days ✓",
-      "Homework     4/4 submitted ✓",
-      "\"Amara showed exceptional focus this week...\"",
-    ],
-  },
-  {
-    id: "ai-3",
-    icon: TrendingUp,
-    tag: "Admin",
-    title: "Predictive Attendance Alerts",
-    body: "Scholr detects patterns automatically — absent every Monday, four lates in a week — and flags with a suggested action. Zero-effort safeguarding.",
-    featured: false,
-    lines: [
-      "⚠  Pattern detected: Joshua Osei",
-      "Absent 3 Mondays in 4 weeks",
-      "→ Schedule parent conversation",
-      "Confidence: 94%",
-    ],
-  },
-]
-
-const PLANS = [
-  {
-    id: "free",
-    name: "Free",
-    monthlyPrice: 0,
-    annualPrice: 0,
-    period: "forever",
-    sub: "Up to 100 students",
-    features: [
-      "Real-time messaging",
-      "Live attendance tracking",
-      "5 active assignments per class",
-      "10 announcements per month",
-      "Basic report cards",
-      "Push notifications",
-      "500MB file vault",
-      "Email support",
-    ],
-    cta: "Get started free",
-    highlight: false,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    monthlyPrice: 89,
-    annualPrice: 74,
-    period: "/month",
-    sub: "Up to 500 students",
-    badge: "Most Popular",
-    features: [
-      "Everything in Free",
-      "Unlimited messaging",
-      "AI Report Writer",
-      "Weekly Intelligence Report",
-      "AI Lesson Summariser",
-      "Predictive Attendance Alerts",
-      "Fee Payment & Invoice Manager",
-      "Engagement Analytics Dashboard",
-      "SMS fallback notifications",
-      "Smart Event Calendar + RSVP",
-      "10GB file vault",
-      "Priority support + onboarding call",
-    ],
-    cta: "Start 14-day free trial",
-    highlight: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthlyPrice: null,
-    annualPrice: null,
-    period: "",
-    sub: "Multi-campus, 500+ students",
-    features: [
-      "Everything in Pro",
-      "Multi-campus dashboard",
-      "White-label branding",
-      "Custom domain",
-      "API access for integrations",
-      "Custom AI tone training",
-      "SLA support agreement",
-      "Dedicated customer success manager",
-      "Quarterly business review",
-      "Unlimited file storage",
-    ],
-    cta: "Contact us",
-    highlight: false,
+    cta: "Find your school",
+    ctaHref: "/find-school",
+    accent: "var(--w-amber)",
   },
 ]
 
 const TESTIMONIALS = [
   {
     id: "t-1",
-    quote: "I manage two campuses — one in Abuja, one in London. The School Health Score told me more in 10 seconds than my previous system told me in a month. We upgraded the same afternoon.",
+    quote: "I manage two campuses, one in Abuja, one in London. Scholr told me more in ten seconds than my old system told me in a month. The teachers feel it too.",
     name: "Dr. Adaeze Okonkwo",
     role: "Proprietor",
     school: "Heritage International School",
     location: "Abuja, Nigeria",
     init: "AO",
-    color: "oklch(46% 0.22 264)",
+    photo: "/landing/avatar-1.jpg",
+    accent: "var(--w-amber-ink)",
   },
   {
     id: "t-2",
-    quote: "The AI Report Writer is the first feature I've ever seen make a teacher cry happy tears. She was spending three full days every term on reports. That is over now.",
+    quote: "The Report Writer made one of my teachers cry happy tears. She used to lose three whole days a term to reports. That's over now, and her words still sound like her.",
     name: "Mrs. Patricia Coleman",
     role: "Head of Year 4",
     school: "Brightwood Academy",
     location: "Houston, TX",
     init: "PC",
-    color: "oklch(52% 0.17 162)",
+    photo: "/landing/avatar-2.jpg",
+    accent: "var(--w-amber)",
   },
   {
     id: "t-3",
-    quote: "The Weekly Intelligence Report changed my Friday evenings. I used to dread checking my phone after school. Now I actually look forward to 5pm on Fridays.",
+    quote: "Friday at 5pm used to be when I'd anxiously check my phone. Now it's the moment I look forward to. My daughter's whole week, told with such warmth.",
     name: "James Osei-Mensah",
-    role: "Parent of Year 6 student",
+    role: "Parent of a Year 6 child",
     school: "Thornbury Prep School",
     location: "London, UK",
     init: "JO",
-    color: "oklch(62% 0.15 65)",
+    photo: "/landing/avatar-3.jpg",
+    accent: "var(--w-coral)",
   },
   {
     id: "t-4",
-    quote: "Setup took 11 minutes. Our parent open rate went from 23% to 81% in the first week. The teachers haven't looked back since we dropped the WhatsApp groups.",
+    quote: "Setup took eleven minutes. Our parents went from barely reading anything to replying within the hour. The whole school feels closer.",
     name: "Mr. Samuel Adekunle",
     role: "Head Teacher",
     school: "Greenfield College",
     location: "Lagos, Nigeria",
     init: "SA",
-    color: "oklch(47% 0.22 27)",
+    photo: "/landing/avatar-4.jpg",
+    accent: "var(--c-emerald)",
   },
   {
     id: "t-5",
-    quote: "For the first time in 12 years, I'm not anxious about parent communication. Everything is in one place, professional, and parents actually respond within minutes.",
+    quote: "For the first time in twelve years, I'm not anxious about parent communication. It's all in one calm place, kind, clear, and parents actually respond.",
     name: "Ms. Chloe Fitzgerald",
     role: "Year 3 Teacher",
     school: "St. Raphael's Primary",
     location: "Dublin, Ireland",
     init: "CF",
-    color: "oklch(56% 0.18 308)",
+    photo: "/landing/avatar-5.jpg",
+    accent: "var(--w-lilac)",
   },
 ]
 
 const FAQ_ITEMS = [
   { q: "Do parents need to download an app?", a: "No. Scholr is a Progressive Web App. Parents open a link from their invitation and tap 'Add to Home Screen' in Safari or Chrome. It looks and feels like a native app without any App Store visit." },
   { q: "Is Scholr FERPA and GDPR compliant?", a: "Yes. Student data is stored in isolated school accounts. No data is shared with third parties. Scholr supports full data deletion on school offboarding and is compliant with FERPA for US schools and GDPR for UK and EU schools." },
-  { q: "How does the AI work?", a: "Scholr uses Anthropic's Claude API to power the Report Writer, Weekly Intelligence Report, Lesson Summariser, and Predictive Attendance features. All AI outputs are stored with your school ID and are fully auditable and deletable." },
+  { q: "How does the AI work?", a: "Scholr uses Anthropic's Claude API to power the Report Writer, your child's Friday story, the Lesson Summariser, and gentle attendance alerts. Every AI output is stored with your school ID and is fully auditable and deletable." },
   { q: "Can we import existing student data?", a: "Yes. Scholr accepts CSV imports for students, classes, and parent contact details. A guided setup wizard walks through the import in under 10 minutes." },
   { q: "What happens when we reach the free tier limit?", a: "You see a clear prompt showing exactly where the limit was reached, with one click to start a 14-day Pro trial. No features are removed mid-month." },
   { q: "Is there a setup fee?", a: "None. You pay only the monthly or annual subscription. Pro schools also receive a complimentary onboarding call at no extra cost." },
-  { q: "What does the 14-day trial include?", a: "Every Pro feature — AI Report Writer, Weekly Intelligence Report, Fee Manager, Analytics Dashboard — at no cost. No credit card required to start." },
-  { q: "Does Scholr work in Nigeria, Ghana, and Africa?", a: "Yes. Scholr was designed with African schools as a primary use case. Optimised for mid-range Android devices, 3G connections, and supports Naira, Cedis, Pounds, and Dollars." },
-  { q: "Can we cancel anytime?", a: "Yes. Cancel from your billing settings with two clicks. Your school retains access until the end of the paid period, and your data is fully exportable before deletion." },
+  { q: "What does the 14-day trial include?", a: "Every Pro feature, the AI Report Writer, your child's Friday story, the Fee Manager, the Analytics Dashboard, at no cost. No credit card required to start." },
+  { q: "Does Scholr work in Nigeria, Ghana, and across Africa?", a: "Yes. Scholr was designed with African schools as a primary use case. It's optimised for mid-range Android devices and 3G connections, and supports Naira, Cedis, Pounds, and Dollars." },
+  { q: "Can we cancel anytime?", a: "Yes. Cancel from your billing settings with two clicks. Your school keeps access until the end of the paid period, and your data is fully exportable before deletion." },
   { q: "Can we white-label Scholr for our school?", a: "White-labeling is available on the Enterprise plan: your school's branding, a custom subdomain, and optionally your own domain (portal.yourschool.com)." },
 ]
 
 const FOOTER_NAV = [
-  { title: "Product", links: ["Features", "Pricing", "Security", "Changelog", "Status"] },
-  { title: "Company", links: ["About", "Blog", "Careers", "Press", "Contact"] },
-  { title: "Support", links: ["Help Centre", "Getting Started", "Teacher Guide", "Parent Guide", "API Docs"] },
+  { title: "Product", links: [
+    { label: "Features", href: "#features" },
+    { label: "Pricing", href: "/pricing" },
+  ] },
+  { title: "Get started", links: [
+    { label: "Find your school", href: "/find-school" },
+    { label: "Create an account", href: "/signup" },
+    { label: "Sign in", href: "/login" },
+  ] },
+  { title: "Company", links: [
+    { label: "Contact", href: "mailto:abrahamayoola35@gmail.com" },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
+  ] },
 ]
 
 const MARQUEE_ITEMS = [
@@ -316,6 +296,27 @@ const MARQUEE_ITEMS = [
   { text: "Maple Leaf Prep", flag: "🇨🇦" },
   { text: "The Whitmore School", flag: "🇬🇧" },
 ]
+
+// ─── Curved divider ────────────────────────────────────────────────────────────
+// A soft wave between bands. `from` is the colour above, `to` the colour below;
+// the SVG paints `to` so the curve "belongs" to the band beneath it. `flip`
+// mirrors the wave for variety.
+
+// Standalone wave between two bands. `from` = colour of the band ABOVE (fills the
+// strip background), `to` = colour of the band BELOW (the wave shape). Placed
+// directly between sections in the page flow so there are never seams or gaps.
+function CurveDivider({ from, to, flip = false, flipY = false }: { from: string; to: string; flip?: boolean; flipY?: boolean }) {
+  const sx = flip ? -1 : 1
+  const sy = flipY ? -1 : 1
+  return (
+    <div className="w-divider" style={{ background: from }} aria-hidden>
+      <svg viewBox="0 0 1440 100" preserveAspectRatio="none" style={{ transform: (flip || flipY) ? `scale(${sx}, ${sy})` : undefined }}>
+        {/* one gentle wave, fully inside the viewBox (no clipping) */}
+        <path d="M0,58 C 360,6 720,6 1080,42 C 1260,60 1360,62 1440,54 L1440,101 L0,101 Z" fill={to} />
+      </svg>
+    </div>
+  )
+}
 
 // ─── Nav ─────────────────────────────────────────────────────────────────────
 
@@ -343,12 +344,12 @@ function Nav() {
         {/* Logo */}
         <a href="/" aria-label="Scholr home" className="flex items-center gap-2 mr-2" style={{ textDecoration: "none" }}>
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--c-indigo)" }}
+            className="w-7 h-7 rounded-xl flex items-center justify-center"
+            style={{ background: "var(--w-amber)", boxShadow: "0 2px 8px -2px var(--w-amber)" }}
           >
-            <GraduationCap size={14} className="text-white" aria-hidden />
+            <GraduationCap size={14} aria-hidden style={{ color: "oklch(26% 0.06 58)" }} />
           </div>
-          <span className="font-display" style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--c-text)" }}>
+          <span className="w-display" style={{ fontSize: "1.05rem", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--w-ink)" }}>
             Scholr
           </span>
         </a>
@@ -363,7 +364,7 @@ function Nav() {
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-1 ml-1">
           <ThemeToggle size="sm" />
-          <a href="/login" className="nav-pill-link" style={{ color: "var(--c-text-muted)" }}>
+          <a href="/login" className="nav-pill-link" style={{ color: "var(--w-ink-soft)" }}>
             Sign in
           </a>
           <a href="/signup" className="nav-pill-cta group">
@@ -440,581 +441,759 @@ function Nav() {
 // ─── Hero ────────────────────────────────────────────────────────────────────
 
 function Hero() {
-  const sectionRef = useRef<HTMLElement>(null)
-  const phoneGroupRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const section = sectionRef.current
-    const phoneGroup = phoneGroupRef.current
-    if (!section || !phoneGroup) return
-
-    let rafId: number
-    const handleMove = (e: MouseEvent) => {
-      cancelAnimationFrame(rafId)
-      rafId = requestAnimationFrame(() => {
-        const rect = section.getBoundingClientRect()
-        const x = (e.clientX - rect.left) / rect.width - 0.5
-        const y = (e.clientY - rect.top) / rect.height - 0.5
-        phoneGroup.style.transform = `perspective(1200px) rotateY(${x * 10}deg) rotateX(${-y * 6}deg) translateZ(30px)`
-      })
-    }
-    const handleLeave = () => {
-      cancelAnimationFrame(rafId)
-      phoneGroup.style.transform = "perspective(1200px) rotateY(0deg) rotateX(0deg) translateZ(0px)"
-    }
-
-    section.addEventListener("mousemove", handleMove)
-    section.addEventListener("mouseleave", handleLeave)
-    return () => {
-      section.removeEventListener("mousemove", handleMove)
-      section.removeEventListener("mouseleave", handleLeave)
-      cancelAnimationFrame(rafId)
-    }
-  }, [])
-
   return (
     <section
-      ref={sectionRef}
+      id="top"
       style={{
-        background: "var(--c-navy)",
-        minHeight: "100dvh",
-        display: "flex",
-        alignItems: "center",
+        background: "var(--w-cream)",
         position: "relative",
         overflow: "hidden",
-        paddingTop: "100px",
-        paddingBottom: "80px",
+        paddingTop: "clamp(116px, 16vw, 152px)",
+        paddingBottom: "clamp(56px, 8vw, 96px)",
       }}
     >
-      {/* Glow orbs */}
+      {/* Playful pastel blobs */}
       <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div style={{
-          position: "absolute",
-          width: "70vw",
-          height: "70vw",
-          maxWidth: "720px",
-          maxHeight: "720px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle at center, oklch(46% 0.22 264 / 0.28) 0%, transparent 65%)",
-          top: "-15%",
-          right: "-10%",
-          animation: "orb-drift 9s ease-in-out infinite",
-        }} />
-        <div style={{
-          position: "absolute",
-          width: "50vw",
-          height: "50vw",
-          maxWidth: "560px",
-          maxHeight: "560px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle at center, oklch(54% 0.20 290 / 0.18) 0%, transparent 65%)",
-          bottom: "-10%",
-          left: "-8%",
-          animation: "orb-drift-b 11s ease-in-out infinite",
-        }} />
-        <div style={{
-          position: "absolute",
-          width: "30vw",
-          height: "30vw",
-          maxWidth: "320px",
-          maxHeight: "320px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle at center, oklch(62% 0.15 65 / 0.12) 0%, transparent 65%)",
-          top: "45%",
-          left: "35%",
-          animation: "orb-drift 14s ease-in-out infinite 3s",
-        }} />
-        {/* Subtle grid */}
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(oklch(100% 0 0 / 0.025) 1px, transparent 1px), linear-gradient(90deg, oklch(100% 0 0 / 0.025) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          maskImage: "radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)",
-        }} />
+        <div className="w-blob w-float-a" style={{ width: 360, height: 360, background: "var(--w-peach)", top: "-6%", right: "6%", opacity: 0.7 }} />
+        <div className="w-blob w-float-b" style={{ width: 280, height: 280, background: "var(--w-mint)", bottom: "2%", left: "-4%", opacity: 0.6 }} />
+        <div className="w-blob w-float-a" style={{ width: 200, height: 200, background: "var(--w-sky)", top: "44%", left: "46%", opacity: 0.45 }} />
       </div>
 
-      <div className="max-w-6xl mx-auto px-5 w-full relative">
-        <div className="grid lg:grid-cols-[1fr_1fr] gap-12 xl:gap-20 items-center">
+      <div className="max-w-7xl mx-auto px-5 w-full relative grid lg:grid-cols-[1.05fr_1fr] gap-x-12 gap-y-14 items-center">
 
-          {/* Left — copy */}
-          <div>
-            <div
-              className="inline-flex items-center gap-2 rounded-full hero-in-1"
-              style={{
-                background: "oklch(46% 0.22 264 / 0.14)",
-                border: "1px solid oklch(46% 0.22 264 / 0.28)",
-                color: "oklch(74% 0.14 264)",
-                fontSize: "0.6875rem",
-                fontWeight: 600,
-                letterSpacing: "0.13em",
-                textTransform: "uppercase",
-                padding: "5px 14px",
-                marginBottom: "2rem",
-              }}
-            >
-              <span className="pulse-dot w-1.5 h-1.5 rounded-full" style={{ background: "var(--c-emerald)" }} aria-hidden />
-              Now live — US · UK · Nigeria · Ghana · Canada
-            </div>
-
-            <h1
-              className="font-display hero-in-2"
-              style={{
-                fontSize: "clamp(2.75rem, 6.5vw, 5.5rem)",
-                lineHeight: 1.0,
-                fontWeight: 800,
-                letterSpacing: "-0.03em",
-                color: "oklch(97% 0.005 264)",
-                marginBottom: "1.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Every parent.<br />
-              Every teacher.<br />
-              <span style={{ color: "oklch(68% 0.16 264)" }}>One place.</span>
-            </h1>
-
-            <p
-              className="hero-in-3"
-              style={{
-                fontSize: "clamp(1rem, 1.5vw, 1.2rem)",
-                color: "oklch(62% 0.012 264)",
-                lineHeight: 1.8,
-                maxWidth: "46ch",
-                marginBottom: "2.5rem",
-              }}
-            >
-              Scholr replaces the email chaos and WhatsApp groups with one premium school platform. Free for schools under 100 students, forever.
-            </p>
-
-            <div className="flex flex-wrap gap-3 mb-10 hero-in-4">
-              <a href="/signup" className="hero-cta-primary group">
-                Get your school on Scholr — it's free
-                <span className="hero-cta-icon">
-                  <ArrowRight size={15} aria-hidden />
-                </span>
-              </a>
-              <button type="button" className="hero-cta-ghost">
-                See a 60-second demo
-              </button>
-            </div>
-
-            {/* Social proof */}
-            <div
-              className="flex flex-wrap items-center gap-5 hero-in-5"
-              style={{ color: "oklch(52% 0.01 264)", fontSize: "0.875rem" }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex" aria-hidden>
-                  {[
-                    "oklch(46% 0.22 264)", "oklch(52% 0.17 162)",
-                    "oklch(62% 0.15 65)", "oklch(47% 0.22 27)", "oklch(56% 0.18 308)",
-                  ].map((c, i) => (
-                    <div
-                      key={i}
-                      className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-white font-bold"
-                      style={{ background: c, borderColor: "var(--c-navy)", fontSize: "0.6rem", marginLeft: i > 0 ? -8 : 0 }}
-                    >
-                      {["A","T","M","K","P"][i]}
-                    </div>
-                  ))}
-                </div>
-                <span>
-                  <strong style={{ color: "oklch(90% 0.008 264)", fontWeight: 600 }}>800+</strong> schools
-                </span>
-              </div>
-              <div className="flex items-center gap-1" aria-label="Rated 4.9 out of 5 stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={12} style={{ fill: "var(--c-gold)", color: "var(--c-gold)" }} aria-hidden />
-                ))}
-                <span className="ml-1">
-                  <strong style={{ color: "oklch(90% 0.008 264)", fontWeight: 600 }}>4.9</strong> from 340 reviews
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={13} style={{ color: "var(--c-emerald)" }} aria-hidden />
-                No credit card
-              </div>
-            </div>
+        {/* Left, copy */}
+        <div className="text-center lg:text-left">
+          <div className="w-eyebrow hero-in-1" style={{ marginBottom: "1.6rem" }}>
+            <span style={{ fontSize: "0.95rem", lineHeight: 1 }} aria-hidden>💛</span>
+            For parents, teachers &amp; schools
           </div>
 
-          {/* Right — phone mockups with parallax */}
-          <div className="hidden lg:block hero-in-6">
-            <div
-              ref={phoneGroupRef}
-              style={{ transition: "transform 350ms cubic-bezier(0.23, 1, 0.32, 1)" }}
-            >
-              <HeroMockup />
+          <h1
+            className="w-display hero-in-2"
+            style={{
+              fontSize: "clamp(2.6rem, 5.2vw, 4.4rem)",
+              lineHeight: 1.02,
+              marginBottom: "1.5rem",
+            }}
+          >
+            Where your child&apos;s<br />
+            school day{" "}
+            <span style={{ position: "relative", whiteSpace: "nowrap", color: "var(--w-coral)" }}>
+              comes home
+              <svg aria-hidden viewBox="0 0 220 14" style={{ position: "absolute", left: 0, bottom: "-0.34em", width: "100%", height: "0.4em" }} preserveAspectRatio="none">
+                <path d="M3,9 C60,2 160,2 217,8" fill="none" stroke="var(--w-amber)" strokeWidth="5" strokeLinecap="round" />
+              </svg>
+            </span>.
+          </h1>
+
+          <p
+            className="hero-in-3 mx-auto lg:mx-0"
+            style={{
+              fontSize: "clamp(1.06rem, 1.4vw, 1.22rem)",
+              color: "var(--w-ink-soft)",
+              lineHeight: 1.65,
+              maxWidth: "46ch",
+              marginBottom: "2.25rem",
+            }}
+          >
+            Attendance, homework, messages and a warm Friday report, all in one calm place,
+            so families and school stay close every day.{" "}
+            <strong style={{ color: "var(--w-ink)", fontWeight: 700 }}>Free under 100 students.</strong>
+          </p>
+
+          <div className="flex flex-wrap gap-3 justify-center lg:justify-start mb-6 hero-in-4">
+            <a href="/signup" className="w-btn group">
+              Get your school on Scholr
+              <span className="w-btn-icon"><ArrowRight size={15} aria-hidden /></span>
+            </a>
+            <a href="mailto:abrahamayoola35@gmail.com" className="w-btn-ghost">Contact us</a>
+          </div>
+
+          <a
+            href="/find-school"
+            className="hero-in-4 inline-flex items-center gap-1.5 mb-9"
+            style={{ fontSize: "0.9rem", color: "var(--w-ink-faint)", textDecoration: "none" }}
+          >
+            Teacher or parent?
+            <span style={{ color: "var(--w-amber-ink)", fontWeight: 700 }}>Find your school →</span>
+          </a>
+
+          {/* Social proof */}
+          <div
+            className="flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 hero-in-5"
+            style={{ color: "var(--w-ink-faint)", fontSize: "0.9rem" }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="flex" aria-hidden>
+                {["/landing/avatar-1.jpg","/landing/avatar-2.jpg","/landing/avatar-3.jpg","/landing/avatar-4.jpg"].map((src, i) => (
+                  <div key={i} style={{ marginLeft: i > 0 ? -10 : 0, borderRadius: "50%", border: "2.5px solid var(--w-cream)" }}>
+                    <Photo src={src} alt="" tag="" radius="50%" style={{ width: 32, height: 32, boxShadow: "none" }} />
+                  </div>
+                ))}
+              </div>
+              <span><strong style={{ color: "var(--w-ink)", fontWeight: 700 }}>800+</strong> schools</span>
+            </div>
+            <div className="flex items-center gap-1" aria-label="Rated 4.9 out of 5 stars">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} size={13} style={{ fill: "var(--w-amber)", color: "var(--w-amber)" }} aria-hidden />
+              ))}
+              <span className="ml-1"><strong style={{ color: "var(--w-ink)", fontWeight: 700 }}>4.9</strong> from 340 families</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={14} style={{ color: "var(--c-emerald)" }} aria-hidden />
+              No credit card
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Floating notification pill */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          bottom: "32px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "8px 16px",
-          borderRadius: "100px",
-          background: "oklch(100% 0 0 / 0.06)",
-          border: "1px solid oklch(100% 0 0 / 0.12)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          whiteSpace: "nowrap",
-          animation: "notification-pop 700ms var(--ease-out) 1.2s both",
-          color: "oklch(80% 0.01 264)",
-          fontSize: "0.8125rem",
-          fontWeight: 500,
-        }}
-      >
-        <span className="pulse-dot w-2 h-2 rounded-full" style={{ background: "var(--c-emerald)" }} />
-        28 parents notified in 43 seconds — Class 6B, Heritage School
+        {/* Right, warm photo collage */}
+        <div className="hero-in-6 w-full">
+          <HeroCollage />
+        </div>
       </div>
     </section>
   )
 }
 
-function HeroMockup() {
+function HeroCollage() {
+  const tilt = useTilt<HTMLDivElement>(7)
   return (
-    <div className="relative" style={{ height: "560px" }}>
-      {/* Parent phone — left front */}
+    <div className="relative mx-auto" style={{ maxWidth: 560 }}>
+     <div ref={tilt} style={{ position: "relative", transition: "transform 420ms var(--ease-out)", transformStyle: "preserve-3d" }}>
+      {/* Main portrait */}
+      <Photo
+        src="/landing/hero-parent-child.jpg"
+        alt="A parent and child smiling together over a phone after school"
+        tag="Parent & child"
+        radius={36}
+        priority
+        className="w-card-hover"
+        style={{ aspectRatio: "4 / 5", width: "100%" }}
+      />
+
+      {/* Secondary classroom photo, overlapping, gentle scroll parallax */}
+      <div data-parallax="-14" className="hidden sm:block" style={{ position: "absolute", bottom: "-9%", left: "-12%", width: "46%" }}>
+        <Photo
+          src="/landing/hero-classroom.jpg"
+          alt="A bright, warm classroom with a teacher and pupils"
+          tag="In class"
+          radius={28}
+          priority
+          style={{ width: "100%", aspectRatio: "1 / 1", border: "5px solid var(--w-cream)" }}
+        />
+      </div>
+
+      {/* Floating "Friday story" card */}
       <div
-        className="phone-frame phone-float absolute"
-        style={{ width: 248, left: 0, top: 16, zIndex: 2 }}
+        className="phone-float"
+        style={{
+          position: "absolute", top: "8%", right: "-7%", width: 208,
+          background: "var(--w-paper)", border: "1px solid var(--w-line)",
+          borderRadius: 22, padding: "14px 16px", boxShadow: "var(--w-shadow-lg)",
+        }}
       >
-        <div className="px-4 py-3 flex items-center gap-2" style={{ background: "var(--c-indigo)" }}>
-          <div className="w-1.5 h-1.5 rounded-full bg-white/50" aria-hidden />
-          <span className="text-xs font-semibold text-white/90 flex-1">Parent Portal</span>
-          <Bell size={12} className="text-white/60" aria-hidden />
+        <div className="flex items-center gap-2 mb-2">
+          <div className="rounded-full flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: "var(--w-coral-bg)" }}>
+            <Heart size={13} style={{ color: "var(--w-coral)" }} aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p style={{ fontSize: 11, fontWeight: 800, color: "var(--w-ink)", lineHeight: 1.1 }}>Amara&apos;s Friday story</p>
+            <p style={{ fontSize: 9, color: "var(--w-ink-faint)" }}>Just now · Week 3</p>
+          </div>
         </div>
-        <div className="p-3 space-y-2.5" style={{ background: "var(--c-surface)" }}>
-          <div className="rounded-xl p-3" style={{ background: "oklch(100% 0 0)", border: "1px solid var(--c-border)" }}>
-            <div className="flex items-center gap-2 mb-2.5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: "var(--c-indigo)" }} aria-hidden>A</div>
-              <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Amara Osei</p>
-                <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>Class 6B · St. Peter's</p>
-              </div>
-              <div className="ml-auto w-2 h-2 rounded-full" style={{ background: "var(--c-emerald)" }} aria-label="Active" />
+        <div className="flex items-center gap-0.5 mb-1.5">
+          {[...Array(5)].map((_, i) => <Star key={i} size={10} style={{ fill: "var(--w-amber)", color: "var(--w-amber)" }} aria-hidden />)}
+          <span style={{ fontSize: 9.5, fontWeight: 700, marginLeft: 4, color: "var(--w-ink-soft)" }}>A lovely week</span>
+        </div>
+        <p style={{ fontSize: 10, color: "var(--w-ink-soft)", lineHeight: 1.5 }}>
+          &ldquo;Her curiosity lit up the science lesson, every homework in on time too.&rdquo;
+        </p>
+      </div>
+
+      {/* Floating "marked present" pill */}
+      <div
+        className="phone-float hidden sm:flex items-center gap-2"
+        style={{
+          position: "absolute", bottom: "14%", right: "-9%",
+          background: "var(--w-paper)", border: "1px solid var(--w-line)",
+          borderRadius: 100, padding: "8px 14px 8px 9px", boxShadow: "var(--w-shadow)",
+          animationDelay: "1.4s",
+        }}
+      >
+        <span className="rounded-full flex items-center justify-center shrink-0" style={{ width: 24, height: 24, background: "var(--c-emerald)" }}>
+          <Check size={13} className="text-white" strokeWidth={3} aria-hidden />
+        </span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--w-ink)" }}>28 parents notified · 43s</span>
+      </div>
+     </div>
+    </div>
+  )
+}
+
+/* ── Live product demo: a scripted cursor walks through the real app ──────────── */
+
+const DEMO_NAV: { icon: React.ElementType; view: "dashboard" | "students" | "attendance" | "analytics" | null }[] = [
+  { icon: LayoutDashboard, view: "dashboard" },
+  { icon: GraduationCap,   view: "students" },
+  { icon: Users,           view: null },
+  { icon: BookOpen,        view: "attendance" },
+  { icon: BarChart3,       view: "analytics" },
+  { icon: CreditCard,      view: null },
+  { icon: MessageSquare,   view: null },
+  { icon: Settings,        view: null },
+]
+const DEMO_STEPS = [0, 1, 3, 4] // nav indices the cursor visits, looping
+
+function ProductDemoScreen() {
+  const screenRef = useRef<HTMLDivElement>(null)
+  const navRefs = useRef<Array<HTMLDivElement | null>>([])
+  const [stepIdx, setStepIdx] = useState(0)
+  const [activeNav, setActiveNav] = useState(DEMO_STEPS[0]) // what's actually shown (commits on click)
+  const [cursor, setCursor] = useState({ x: 16, y: 80, visible: false })
+  const [clicking, setClicking] = useState(false)
+  const [rippleKey, setRippleKey] = useState(0)
+
+  const targetNav = DEMO_STEPS[stepIdx]                      // where the cursor is heading
+  const view = DEMO_NAV[activeNav].view ?? "dashboard"       // view follows the committed nav
+
+  // Advance through the script (paused for reduced motion)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const t = setTimeout(() => setStepIdx(s => (s + 1) % DEMO_STEPS.length), 3000)
+    return () => clearTimeout(t)
+  }, [stepIdx])
+
+  // Move the cursor to the target nav, and only AFTER it lands + "clicks" do we
+  // swap the view + active highlight, so the screen never changes before the click.
+  // Offset coords are immune to the laptop's 3D transform.
+  useEffect(() => {
+    const el = navRefs.current[targetNav]
+    if (!el) return
+    setCursor({ x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2, visible: true })
+    const t = setTimeout(() => {            // cursor travel ≈ 640ms, then it clicks
+      setClicking(true)
+      setRippleKey(k => k + 1)
+      setActiveNav(targetNav)               // ← view + highlight commit on the click
+      const t2 = setTimeout(() => setClicking(false), 260)
+      return () => clearTimeout(t2)
+    }, 680)
+    return () => clearTimeout(t)
+  }, [stepIdx, targetNav])
+
+  return (
+    <div ref={screenRef} className="relative flex h-full w-full" style={{ background: "var(--c-surface)", color: "var(--c-text)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* Sidebar */}
+      <div className="flex flex-col items-center gap-1.5 py-2.5 shrink-0" style={{ width: 40, background: "var(--c-bg)", borderRight: "1px solid var(--c-border)" }}>
+        <div className="rounded-md flex items-center justify-center mb-1" style={{ width: 20, height: 20, background: "var(--c-indigo)" }}>
+          <GraduationCap size={11} className="text-white" />
+        </div>
+        {DEMO_NAV.map(({ icon: Icon }, i) => {
+          const active = i === activeNav
+          return (
+            <div
+              key={i}
+              ref={el => { navRefs.current[i] = el }}
+              className="rounded-md flex items-center justify-center transition-all duration-300"
+              style={{ width: 22, height: 22, background: active ? "var(--c-indigo-bg)" : "transparent" }}
+            >
+              <Icon size={11} style={{ color: active ? "var(--c-indigo)" : "var(--c-text-muted)" }} strokeWidth={active ? 2.5 : 2} />
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[
-                { l: "Attendance", v: "97%", ok: true },
-                { l: "Homework", v: "4 due", ok: false },
-                { l: "Reports", v: "Published", ok: true },
-                { l: "Messages", v: "2 new", ok: false },
-              ].map(({ l, v, ok }) => (
-                <div key={l} className="rounded-lg p-2" style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}>
-                  <p className="text-xs mb-0.5" style={{ color: "var(--c-text-muted)" }}>{l}</p>
-                  <p className="text-xs font-bold" style={{ color: ok ? "var(--c-emerald)" : "var(--c-indigo)" }}>{v}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-xl p-2.5 flex items-start gap-2" style={{ background: "oklch(97% 0.01 27)", border: "1px solid oklch(88% 0.04 27)" }}>
-            <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: "var(--c-red)" }}>
-              <Bell size={10} className="text-white" aria-hidden />
-            </div>
-            <div>
-              <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Absence alert</p>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--c-text-mid)" }}>Amara was marked absent today at 8:47am</p>
-            </div>
-          </div>
-          <div className="rounded-xl p-2.5" style={{ background: "oklch(100% 0 0)", border: "1px solid var(--c-border)" }}>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Weekly Report</p>
-              <span className="badge badge-pro">✦ Pro</span>
-            </div>
-            <div className="rounded-lg p-2 text-center" style={{ background: "oklch(96% 0.015 264)", filter: "blur(2px)", userSelect: "none" }} aria-hidden>
-              <p className="text-xs font-bold" style={{ color: "var(--c-indigo)" }}>Week 3 · Term 2</p>
-              <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>★★★★★ Great week</p>
-            </div>
-          </div>
+          )
+        })}
+      </div>
+
+      {/* Main view (swaps as the cursor navigates) */}
+      <div className="flex-1 min-w-0 relative" style={{ overflow: "hidden" }}>
+        <div key={view} className="demo-view absolute inset-0 px-3 py-2.5" style={{ overflow: "hidden" }}>
+          {view === "dashboard"  && <DemoDashboard />}
+          {view === "students"   && <DemoStudents />}
+          {view === "attendance" && <DemoAttendance />}
+          {view === "analytics"  && <DemoAnalytics />}
         </div>
       </div>
 
-      {/* Teacher phone — right, slightly behind */}
+      {/* Demo cursor */}
       <div
-        className="phone-frame absolute"
+        className="absolute pointer-events-none"
+        aria-hidden
         style={{
-          width: 240,
-          right: 0,
-          top: 64,
-          zIndex: 1,
-          opacity: 0.88,
-          animationDelay: "2.5s",
-          animation: "phone-float 5s ease-in-out infinite 2.5s",
+          left: 0, top: 0,
+          transform: `translate(${cursor.x}px, ${cursor.y}px)`,
+          transition: "transform 640ms cubic-bezier(0.45, 0, 0.15, 1)",
+          opacity: cursor.visible ? 1 : 0,
+          zIndex: 40,
+          willChange: "transform",
         }}
       >
-        <div className="px-4 py-3 flex items-center gap-2" style={{ background: "var(--c-emerald)" }}>
-          <div className="w-1.5 h-1.5 rounded-full bg-white/50" aria-hidden />
-          <span className="text-xs font-semibold text-white/90 flex-1">Attendance · Class 6B</span>
-        </div>
-        <div className="p-3" style={{ background: "var(--c-surface)" }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Monday, 2 June</p>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "oklch(95% 0.015 162)", color: "var(--c-emerald)" }}>28/30</span>
-          </div>
-          <div className="space-y-1.5">
-            {[
-              { n: "Adeyemi, Kofi", s: "present" },
-              { n: "Bannister, Lucy", s: "present" },
-              { n: "Chen, Marcus", s: "late" },
-              { n: "Diallo, Fatou", s: "absent" },
-              { n: "Eze, Chisom", s: "present" },
-            ].map(({ n, s }) => (
-              <div key={n} className="flex items-center justify-between rounded-lg px-2.5 py-1.5"
-                style={{
-                  background: s === "absent" ? "oklch(97% 0.01 27)" : s === "late" ? "oklch(97% 0.015 65)" : "oklch(100% 0 0)",
-                  border: "1px solid var(--c-border)",
-                }}
-              >
-                <span className="text-xs font-medium" style={{ color: "var(--c-text)" }}>{n}</span>
-                <span className="text-xs font-semibold capitalize" style={{
-                  color: s === "absent" ? "var(--c-red)" : s === "late" ? "var(--c-gold)" : "var(--c-emerald)",
-                }}>{s}</span>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="w-full mt-3 py-2 rounded-xl text-xs font-bold text-white" style={{ background: "var(--c-emerald)" }}>
-            Save — parents notified
-          </button>
-        </div>
+        <span key={rippleKey} className="demo-ripple" />
+        <svg width="17" height="17" viewBox="0 0 24 24" style={{ display: "block", transform: clicking ? "scale(0.82)" : "scale(1)", transition: "transform 130ms ease", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))" }}>
+          <path d="M5 2.5 L5 18.5 L9.2 14.6 L11.8 20 L14.1 18.9 L11.5 13.6 L17 13.4 Z" fill="#fff" stroke="#15162b" strokeWidth="1.4" strokeLinejoin="round" />
+        </svg>
       </div>
     </div>
   )
 }
 
-// ─── Marquee ─────────────────────────────────────────────────────────────────
+/* Demo views (each fills the main content area) */
+function DemoViewHeader({ kicker, title, action }: { kicker?: string; title: string; action?: string }) {
+  return (
+    <div className="flex items-end justify-between mb-2">
+      <div>
+        {kicker && <p style={{ fontSize: 7, color: "var(--c-text-muted)", fontWeight: 600, letterSpacing: "0.04em" }}>{kicker}</p>}
+        <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{title}</p>
+      </div>
+      {action && (
+        <span className="rounded-md text-white" style={{ fontSize: 7.5, fontWeight: 700, background: "var(--c-indigo)", padding: "3px 7px" }}>{action}</span>
+      )}
+    </div>
+  )
+}
+
+function DemoDashboard() {
+  const stats = [
+    { label: "Students", value: "248", icon: GraduationCap, color: "var(--c-indigo)" },
+    { label: "Teachers", value: "18",  icon: Users,         color: "var(--c-emerald)" },
+    { label: "Classes",  value: "12",  icon: BookOpen,      color: "var(--c-gold)" },
+    { label: "Parents",  value: "312", icon: Users,         color: "var(--c-indigo)" },
+  ]
+  const R = 15, C = 2 * Math.PI * R
+  return (
+    <>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p style={{ fontSize: 7, color: "var(--c-text-muted)", fontWeight: 600, letterSpacing: "0.02em" }}>WEDNESDAY, 3 JUNE</p>
+          <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>Good morning 👋</p>
+          <p style={{ fontSize: 7.5, color: "var(--c-text-muted)" }}>Rehoboth Academy</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-full px-1.5 py-1" style={{ background: "var(--c-indigo-bg)" }}>
+          <span className="rounded-full" style={{ width: 4, height: 4, background: "var(--c-indigo)" }} />
+          <span style={{ fontSize: 7.5, fontWeight: 700, color: "var(--c-indigo)" }}>12 new</span>
+          <Bell size={8} style={{ color: "var(--c-indigo)" }} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        <div className="rounded-lg p-2 flex items-center gap-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <svg width="34" height="34" viewBox="0 0 38 38" className="shrink-0 -rotate-90">
+            <circle cx="19" cy="19" r={R} fill="none" strokeWidth="4" stroke="var(--c-border)" />
+            <circle cx="19" cy="19" r={R} fill="none" strokeWidth="4" strokeLinecap="round" stroke="var(--c-emerald)" strokeDasharray={`${0.88 * C} ${C}`} />
+          </svg>
+          <div className="min-w-0">
+            <p style={{ fontSize: 8.5, fontWeight: 700, lineHeight: 1.1 }}>School health</p>
+            <p style={{ fontSize: 7, color: "var(--c-text-muted)" }}>94% attendance</p>
+            <p style={{ fontSize: 7, color: "var(--c-text-muted)" }}>87% homework</p>
+          </div>
+        </div>
+        <div className="rounded-lg p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p style={{ fontSize: 8.5, fontWeight: 700 }}>Subscription</p>
+            <span className="rounded-full px-1.5" style={{ fontSize: 6.5, fontWeight: 800, background: "var(--c-emerald-bg)", color: "var(--c-emerald)", paddingTop: 1, paddingBottom: 1 }}>PRO</span>
+          </div>
+          <div className="flex items-center justify-between" style={{ marginBottom: 3 }}>
+            <span style={{ fontSize: 7, color: "var(--c-text-muted)" }}>Students</span>
+            <span style={{ fontSize: 7, fontWeight: 700 }}>248 / 300</span>
+          </div>
+          <div className="rounded-full overflow-hidden" style={{ height: 3, background: "var(--c-surface)" }}>
+            <div className="h-full rounded-full" style={{ width: "82%", background: "var(--c-indigo)" }} />
+          </div>
+          <p style={{ fontSize: 7, color: "var(--c-indigo)", fontWeight: 700, marginTop: 4 }}>Manage plan →</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-1.5 mb-1.5">
+        {stats.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="rounded-lg p-1.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+            <div className="rounded flex items-center justify-center mb-1" style={{ width: 12, height: 12, background: `color-mix(in srgb, ${color} 16%, transparent)` }}>
+              <Icon size={7} style={{ color }} />
+            </div>
+            <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</p>
+            <p style={{ fontSize: 6.5, color: "var(--c-text-muted)" }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg)" }}>
+        <div className="flex items-center justify-between px-2 py-1" style={{ borderBottom: "1px solid var(--c-border)" }}>
+          <p style={{ fontSize: 7.5, fontWeight: 700, color: "var(--c-text-muted)", letterSpacing: "0.06em" }}>RECENT MEMBERS</p>
+          <p style={{ fontSize: 7, fontWeight: 700, color: "var(--c-indigo)" }}>View all</p>
+        </div>
+        {[
+          { n: "Olumide Bello", r: "Teacher", c: "var(--c-emerald)" },
+          { n: "Daniel Okpara", r: "Parent",  c: "var(--c-indigo)" },
+        ].map(({ n, r, c }) => (
+          <div key={n} className="flex items-center gap-1.5 px-2 py-1.5" style={{ borderBottom: "1px solid var(--c-border)" }}>
+            <div className="rounded-full flex items-center justify-center text-white shrink-0" style={{ width: 14, height: 14, background: c, fontSize: 6.5, fontWeight: 700 }}>{n[0]}</div>
+            <div className="flex-1 min-w-0">
+              <p style={{ fontSize: 8, fontWeight: 700, lineHeight: 1.1 }}>{n}</p>
+              <p style={{ fontSize: 6.5, color: "var(--c-text-muted)" }}>{r}</p>
+            </div>
+            <span className="rounded-full px-1.5" style={{ fontSize: 6, fontWeight: 700, background: "var(--c-emerald-bg)", color: "var(--c-emerald)", paddingTop: 1, paddingBottom: 1 }}>Active</span>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function DemoStudents() {
+  const rows = [
+    { n: "Amara Osei",     cls: "6B", att: "97%", ok: true },
+    { n: "Kofi Mensah",    cls: "5A", att: "92%", ok: true },
+    { n: "Lucy Bannister", cls: "6B", att: "88%", ok: true },
+    { n: "Marcus Chen",    cls: "4C", att: "74%", ok: false },
+    { n: "Fatou Diallo",   cls: "6B", att: "99%", ok: true },
+  ]
+  return (
+    <>
+      <DemoViewHeader kicker="248 ENROLLED" title="Students" action="+ Add student" />
+      <div className="rounded-lg flex items-center gap-1.5 px-2 mb-1.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)", height: 18 }}>
+        <span className="rounded-full" style={{ width: 6, height: 6, border: "1.5px solid var(--c-text-muted)" }} />
+        <span style={{ fontSize: 7.5, color: "var(--c-text-muted)" }}>Search students…</span>
+      </div>
+      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)", background: "var(--c-bg)" }}>
+        <div className="grid items-center px-2 py-1" style={{ gridTemplateColumns: "1fr 28px 34px 36px", borderBottom: "1px solid var(--c-border)", background: "var(--c-surface)" }}>
+          {["Name", "Class", "Att.", "Status"].map(h => (
+            <span key={h} style={{ fontSize: 6.5, fontWeight: 700, color: "var(--c-text-muted)", letterSpacing: "0.04em" }}>{h}</span>
+          ))}
+        </div>
+        {rows.map(({ n, cls, att, ok }) => (
+          <div key={n} className="grid items-center px-2 py-1.5" style={{ gridTemplateColumns: "1fr 28px 34px 36px", borderBottom: "1px solid var(--c-border)" }}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="rounded-full flex items-center justify-center text-white shrink-0" style={{ width: 13, height: 13, background: "var(--c-indigo)", fontSize: 6, fontWeight: 700 }}>{n[0]}</div>
+              <span className="truncate" style={{ fontSize: 8, fontWeight: 600 }}>{n}</span>
+            </div>
+            <span style={{ fontSize: 7.5, color: "var(--c-text-mid)" }}>{cls}</span>
+            <span style={{ fontSize: 7.5, fontWeight: 700, color: ok ? "var(--c-emerald)" : "var(--c-gold)" }}>{att}</span>
+            <span className="rounded-full px-1" style={{ fontSize: 6, fontWeight: 700, background: "var(--c-emerald-bg)", color: "var(--c-emerald)", justifySelf: "start", paddingTop: 1, paddingBottom: 1 }}>Active</span>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function DemoAttendance() {
+  const roster = [
+    { n: "Adeyemi, Kofi",   s: "present" },
+    { n: "Bannister, Lucy", s: "present" },
+    { n: "Chen, Marcus",    s: "late" },
+    { n: "Diallo, Fatou",   s: "absent" },
+    { n: "Eze, Chisom",     s: "present" },
+    { n: "Osei, Amara",     s: "present" },
+  ]
+  const col = (s: string) => s === "absent" ? "var(--c-red)" : s === "late" ? "var(--c-gold)" : "var(--c-emerald)"
+  const bg  = (s: string) => s === "absent" ? "var(--c-red-bg)" : s === "late" ? "var(--c-gold-bg)" : "var(--c-bg)"
+  return (
+    <>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <p style={{ fontSize: 7, color: "var(--c-text-muted)", fontWeight: 600 }}>CLASS 6B · MONDAY, 2 JUNE</p>
+          <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>Attendance</p>
+        </div>
+        <span className="rounded-full px-1.5 py-0.5" style={{ fontSize: 7.5, fontWeight: 800, background: "var(--c-emerald-bg)", color: "var(--c-emerald)" }}>28 / 30</span>
+      </div>
+      <div className="space-y-1 mb-1.5">
+        {roster.map(({ n, s }) => (
+          <div key={n} className="flex items-center justify-between rounded-md px-2 py-1" style={{ background: bg(s), border: "1px solid var(--c-border)" }}>
+            <span style={{ fontSize: 8, fontWeight: 600 }}>{n}</span>
+            <span className="capitalize" style={{ fontSize: 7.5, fontWeight: 700, color: col(s) }}>{s}</span>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="w-full rounded-lg text-white" style={{ background: "var(--c-emerald)", fontSize: 8.5, fontWeight: 800, padding: "5px 0" }}>
+        Save, parents notified
+      </button>
+    </>
+  )
+}
+
+function DemoAnalytics() {
+  const bars = [62, 78, 70, 88, 84, 94, 90]
+  return (
+    <>
+      <DemoViewHeader kicker="LAST 30 DAYS" title="Analytics" />
+      <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        {[
+          { l: "Attendance rate", v: "94%", up: true,  c: "var(--c-emerald)" },
+          { l: "Homework rate",   v: "87%", up: true,  c: "var(--c-indigo)" },
+        ].map(({ l, v, up, c }) => (
+          <div key={l} className="rounded-lg p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+            <p style={{ fontSize: 7, color: "var(--c-text-muted)", marginBottom: 2 }}>{l}</p>
+            <div className="flex items-center gap-1">
+              <p style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1, color: c }}>{v}</p>
+              {up && <TrendingUp size={9} style={{ color: c }} />}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+        <p style={{ fontSize: 7.5, fontWeight: 700, color: "var(--c-text-muted)", letterSpacing: "0.04em", marginBottom: 6 }}>WEEKLY ATTENDANCE</p>
+        <div className="flex items-end justify-between gap-1" style={{ height: 56 }}>
+          {bars.map((h, i) => (
+            <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: i === bars.length - 1 ? "var(--c-indigo)" : "color-mix(in srgb, var(--c-indigo) 28%, transparent)" }} />
+          ))}
+        </div>
+        <div className="flex justify-between mt-1">
+          {["M", "T", "W", "T", "F", "M", "T"].map((d, i) => (
+            <span key={i} style={{ fontSize: 6, color: "var(--c-text-muted)" }}>{d}</span>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+
+// ─── Trust strip (marquee) ──────────────────────────────────────────────────
 
 function Marquee() {
   const doubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
   return (
     <section
-      style={{
-        borderTop: "1px solid var(--c-border)",
-        borderBottom: "1px solid var(--c-border)",
-        background: "var(--c-surface)",
-        padding: "16px 0",
-        overflow: "hidden",
-      }}
+      style={{ background: "var(--w-cream)", padding: "10px 0 28px", overflow: "hidden" }}
       aria-label="Trusted by schools worldwide"
     >
+      <Rise variant="scale">
+        <p className="text-center" style={{ fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--w-ink-faint)", marginBottom: 18 }}>
+          Loved by 800+ schools across five countries
+        </p>
+      </Rise>
       <div className="marquee-outer">
         <div className="marquee-track" aria-hidden>
           {doubled.map((item, i) => (
-            <span key={i} className="marquee-item">
+            <span key={i} className="marquee-item" style={{ color: "var(--w-ink-soft)" }}>
               <span style={{ fontSize: "1rem" }}>{item.flag}</span>
               {item.text}
-              <span className="marquee-dot" />
+              <span className="marquee-dot" style={{ background: "var(--w-line)" }} />
             </span>
           ))}
         </div>
       </div>
-      <p className="sr-only">Trusted by 800+ schools including Heritage International School, Brightwood Academy, Thornbury Prep, and many more.</p>
     </section>
   )
 }
 
-// ─── Value Props ──────────────────────────────────────────────────────────────
+// ─── How it works / Value Props ─────────────────────────────────────────────
 
-function ValuePropsSection() {
-  const { ref, visible } = useReveal()
-  const PROPS = [
-    {
-      icon: Bell,
-      title: "Instant parent alerts",
-      body: "Absence notifications in under 2 minutes. Every parent, every time, before they've left their morning meeting.",
-    },
-    {
-      icon: BookOpen,
-      title: "Homework that sticks",
-      body: "Assignments with deadlines, file attachments, and grade tracking. No more lost paper slips.",
-    },
-    {
-      icon: Brain,
-      title: "AI that saves hours",
-      body: "Report writing, lesson summaries, and predictive attendance alerts — all powered by Anthropic's Claude.",
-    },
-    {
-      icon: BarChart3,
-      title: "School health at a glance",
-      body: "One score. Every metric. Updated in real-time from any device, any timezone.",
-    },
-  ]
-
+function WarmIcon({ icon: Icon, bg, fg }: { icon: React.ElementType; bg: string; fg: string }) {
   return (
-    <section
-      ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ background: "var(--c-bg)", padding: "clamp(72px, 10vw, 112px) 20px" }}
-    >
-      <div className="max-w-6xl mx-auto">
-        <div className="grid lg:grid-cols-[1fr_2fr] gap-14 lg:gap-20 items-start">
-          {/* Left: heading */}
-          <div className={`reveal ${visible ? "visible" : ""}`}>
-            <p className="section-label">What you get</p>
-            <h2
-              className="font-display"
-              style={{
-                fontSize: "clamp(1.75rem, 3.5vw, 2.5rem)",
-                fontWeight: 800,
-                color: "var(--c-text)",
-                lineHeight: 1.12,
-                letterSpacing: "-0.025em",
-              }}
-            >
-              Everything your school needs to communicate better.
-            </h2>
-          </div>
+    <div className="w-itile mb-4" style={{ background: bg }} aria-hidden>
+      <Icon style={{ color: fg }} strokeWidth={2} />
+    </div>
+  )
+}
 
-          {/* Right: 2×2 feature grid */}
-          <div className="grid sm:grid-cols-2 gap-x-10 gap-y-10">
-            {PROPS.map((p, i) => {
-              const Icon = p.icon
-              return (
-                <div
-                  key={p.title}
-                  className={`reveal reveal-delay-${i + 1} ${visible ? "visible" : ""}`}
-                >
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                    style={{ background: "var(--c-indigo-bg)" }}
-                    aria-hidden
-                  >
-                    <Icon size={18} style={{ color: "var(--c-indigo)" }} />
-                  </div>
-                  <h3
-                    className="font-semibold mb-2"
-                    style={{ fontSize: "1.0625rem", color: "var(--c-text)", lineHeight: 1.3, letterSpacing: "-0.01em" }}
-                  >
-                    {p.title}
-                  </h3>
-                  <p style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.75 }}>
-                    {p.body}
-                  </p>
-                </div>
-              )
-            })}
+const FEATURE_CARDS = [
+  { icon: Bell,          bg: "var(--w-coral-bg)", fg: "var(--w-coral)",      title: "Gentle absence alerts", body: "If your child is marked absent, you'll know within minutes, kind and clear, never alarming." },
+  { icon: BookOpen,      bg: "var(--w-amber-bg)", fg: "var(--w-amber-ink)",  title: "Homework, all in one place", body: "Every deadline, file and grade sorted by what's due next, never buried in a group chat." },
+  { icon: MessageSquare, bg: "var(--w-mint)",     fg: "var(--c-emerald)",    title: "Calm, private messaging", body: "One warm inbox per teacher. No personal numbers, no 11pm group-chat chaos." },
+  { icon: FileText,      bg: "var(--w-lilac)",    fg: "oklch(48% 0.16 300)", title: "AI Report Writer", body: "Describe a child in a sentence; Scholr drafts a warm, specific report in your school's voice, hours back each term." },
+  { icon: TrendingUp,    bg: "var(--w-amber-bg)", fg: "var(--w-amber-ink)",  title: "Gentle early alerts", body: "Scholr quietly spots patterns, a few Monday absences, and flags them kindly, with a suggested next step." },
+  { icon: BarChart3,     bg: "var(--w-sky)",      fg: "oklch(48% 0.15 240)", title: "A school you can see", body: "A live School Health Score and engagement trends, in plain language, lead with confidence from anywhere." },
+]
+
+function FeaturesSection() {
+  return (
+    <section id="features" style={{ background: "var(--w-sand)", padding: "clamp(72px, 10vw, 120px) 20px" }}>
+      <div className="max-w-6xl mx-auto">
+        <Rise className="text-center" style={{ maxWidth: "48rem", margin: "0 auto clamp(2.5rem, 5vw, 3.5rem)" }}>
+          <p className="w-label">Everything in one warm place</p>
+          <h2 className="w-display" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.08 }}>
+            One home for every part of the school day.
+          </h2>
+          <p style={{ fontSize: "clamp(1rem, 1.4vw, 1.125rem)", color: "var(--w-ink-soft)", lineHeight: 1.7, marginTop: "1rem" }}>
+            Attendance, homework, messages and a warm weekly story, together at last, so nothing about your child slips through the cracks.
+          </p>
+        </Rise>
+
+        {/* Signature feature spotlight, the Friday story */}
+        <Rise variant="scale" className="w-card mockup-warm" style={{ background: "var(--w-cocoa)", border: "none", borderRadius: 32, overflow: "hidden", marginBottom: "clamp(1.5rem, 3vw, 2.25rem)" }}>
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center" style={{ padding: "clamp(28px, 4vw, 52px)" }}>
+            <div>
+              <div className="w-eyebrow mb-5" style={{ background: "oklch(100% 0 0 / 0.08)", border: "1px solid oklch(100% 0 0 / 0.14)", color: "var(--w-amber)" }}>
+                <Sparkles size={13} aria-hidden /> The signature feature
+              </div>
+              <h3 className="w-display" style={{ fontSize: "clamp(1.7rem, 3.2vw, 2.5rem)", lineHeight: 1.06, color: "oklch(98% 0.01 80)", marginBottom: "1.1rem" }}>
+                Every Friday, your child&apos;s week, told with warmth.
+              </h3>
+              <p style={{ fontSize: "1.0625rem", color: "oklch(83% 0.02 75)", lineHeight: 1.75, maxWidth: "42ch", marginBottom: "1.75rem" }}>
+                Days present. Homework done. A kind word from the teacher, and a note written just for your child, landing gently at 5pm, every Friday.
+              </p>
+              <div className="inline-flex items-start gap-3 p-4 rounded-2xl" style={{ background: "oklch(72% 0.155 64 / 0.1)", border: "1px solid oklch(72% 0.155 64 / 0.22)", maxWidth: "42ch" }}>
+                <Heart size={18} style={{ color: "var(--w-amber)", flexShrink: 0, marginTop: 2 }} aria-hidden />
+                <p style={{ fontSize: "0.875rem", color: "oklch(84% 0.015 75)", lineHeight: 1.65 }}>
+                  Schools sending the Friday story see parent happiness climb by an average of <strong style={{ color: "oklch(96% 0.01 80)" }}>22 points</strong> in a single term.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-center lg:justify-end">
+              <WeeklyReportPhone />
+            </div>
           </div>
+        </Rise>
+
+        {/* Feature grid */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {FEATURE_CARDS.map((c, i) => (
+            <Rise key={c.title} delay={(i % 3) * 90} className="w-card w-card-hover" style={{ padding: 26 }}>
+              <WarmIcon icon={c.icon} bg={c.bg} fg={c.fg} />
+              <h3 style={{ fontSize: "1.0625rem", fontWeight: 800, color: "var(--w-ink)", letterSpacing: "-0.01em", marginBottom: 6 }}>{c.title}</h3>
+              <p style={{ fontSize: "0.9rem", color: "var(--w-ink-soft)", lineHeight: 1.6 }}>{c.body}</p>
+            </Rise>
+          ))}
         </div>
       </div>
     </section>
   )
 }
 
-// ─── Problem section ──────────────────────────────────────────────────────────
+// ─── Empathy / "we get it" section (replaces cold Problem) ───────────────────
 
 function ProblemSection() {
   const { ref, visible } = useReveal()
   const problems = [
     {
-      num: "01",
-      title: "The email no one opens",
-      body: "An inbox at 847 unread. Urgent notices buried under newsletters and promotions. Parents read it three days late — if at all.",
+      icon: FileText,
+      accent: "var(--w-coral)", bg: "var(--w-coral-bg)",
+      title: "The email no one opened",
+      body: "An inbox at 847 unread. The note about the trip, buried under newsletters. Read three days late, if at all.",
     },
     {
-      num: "02",
-      title: "The WhatsApp group at 11pm",
-      body: "Fee reminders disappear under memes. Teachers can't separate personal life from school. Their personal number exposed to 150 parents.",
+      icon: MessageSquare,
+      accent: "var(--w-amber-ink)", bg: "var(--w-amber-bg)",
+      title: "The 11pm group chat",
+      body: "Fee reminders lost under memes. A teacher's personal number shared with 150 parents. No off switch.",
     },
     {
-      num: "03",
-      title: "The parent who finds out too late",
-      body: "Your child was absent three days ago. The school sent a note. You never saw it.",
+      icon: Heart,
+      accent: "var(--c-emerald)", bg: "var(--w-mint)",
+      title: "The moment you missed",
+      body: "Your child was upset at school on Tuesday. You only heard about it on Friday. It shouldn't be this hard to stay close.",
+    },
+    {
+      icon: Calendar,
+      accent: "oklch(48% 0.15 240)", bg: "var(--w-sky)",
+      title: "The form lost in a backpack",
+      body: "Permission slips signed the morning of, if they ever surface at all. Always one more thing to chase down.",
     },
   ]
 
   return (
     <section
       ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ background: "var(--c-surface)", padding: "clamp(80px, 12vw, 130px) 20px" }}
+      style={{ background: "var(--w-cream)", padding: "clamp(72px, 11vw, 120px) 20px" }}
     >
       <div className="max-w-6xl mx-auto">
-        <div className="grid lg:grid-cols-[1fr_1.15fr] gap-14 lg:gap-20 items-start">
-          {/* Left: editorial heading */}
+        <div className="grid lg:grid-cols-[1fr_1.15fr] gap-12 lg:gap-20 items-center">
+          {/* Left: editorial heading + photo */}
           <div className={`reveal ${visible ? "visible" : ""}`}>
-            <p className="section-label" style={{ color: "var(--c-gold)" }}>Sound familiar?</p>
-            <h2
-              className="font-display"
-              style={{
-                fontSize: "clamp(2rem, 4vw, 3rem)",
-                fontWeight: 800,
-                color: "var(--c-text)",
-                lineHeight: 1.08,
-                letterSpacing: "-0.025em",
-                marginBottom: "1.5rem",
-              }}
-            >
-              Schools deserve better than email chaos.
+            <p className="w-label" style={{ color: "var(--w-coral)" }}>Sound familiar?</p>
+            <h2 className="w-display" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.08, marginBottom: "1.25rem" }}>
+              Staying close to your child&apos;s day shouldn&apos;t be this hard.
             </h2>
-            <p
-              style={{
-                fontSize: "1.0625rem",
-                color: "var(--c-text-mid)",
-                lineHeight: 1.8,
-                marginBottom: "2.5rem",
-              }}
-            >
-              Parents receive information through 4 to 6 disconnected channels simultaneously. Teachers spend 3 to 5 hours a week on communication that has nothing to do with teaching.
+            <p style={{ fontSize: "1.0625rem", color: "var(--w-ink-soft)", lineHeight: 1.8, marginBottom: "1.75rem" }}>
+              Today, news travels through four or five disconnected channels. Teachers lose hours each week to messages that have nothing to do with teaching. Families feel a step behind.
             </p>
-            <div className="flex items-center gap-2.5">
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--c-indigo)" }}
-                aria-hidden
-              >
-                <Check size={10} className="text-white" strokeWidth={3} />
+            <Photo
+              src="/landing/empathy.jpg"
+              alt="A parent checking their phone with a warm, relieved smile"
+              tag="A calmer morning"
+              radius={28}
+              className="hidden lg:block"
+              style={{ aspectRatio: "16 / 11", width: "100%" }}
+            />
+            <div className="flex items-center gap-2.5" style={{ marginTop: "1.5rem" }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "var(--w-amber)" }} aria-hidden>
+                <Check size={12} strokeWidth={3} style={{ color: "oklch(26% 0.06 58)" }} />
               </div>
-              <p className="font-semibold" style={{ fontSize: "0.9375rem", color: "var(--c-text)" }}>
-                Scholr fixes all three.
-              </p>
+              <p style={{ fontSize: "0.975rem", fontWeight: 700, color: "var(--w-ink)" }}>Scholr gently fixes all of this.</p>
             </div>
           </div>
 
-          {/* Right: clean problem cards */}
-          <div className="space-y-3">
+          {/* Right: warm problem cards */}
+          <div className="space-y-4">
             {problems.map((p, i) => (
-              <div
-                key={p.num}
-                className={`card card-hover reveal reveal-delay-${i + 1} ${visible ? "visible" : ""}`}
-                style={{ padding: "28px 32px", display: "flex", gap: "24px", alignItems: "flex-start" }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    color: "var(--c-text-muted)",
-                    letterSpacing: "0.08em",
-                    flexShrink: 0,
-                    paddingTop: "3px",
-                  }}
-                  aria-hidden
-                >
-                  {p.num}
-                </span>
-                <div>
-                  <h3
-                    className="font-semibold mb-2"
-                    style={{ fontSize: "1.0625rem", color: "var(--c-text)", lineHeight: 1.3, letterSpacing: "-0.01em" }}
-                  >
-                    {p.title}
-                  </h3>
-                  <p style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.75 }}>
-                    {p.body}
-                  </p>
+              <Rise key={p.title} variant="right" delay={i * 100} className="w-card" style={{ padding: 26 }}>
+                <div className="flex items-start gap-4">
+                  <div className="w-itile" style={{ background: p.bg }} aria-hidden>
+                    <p.icon style={{ color: p.accent }} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: "1.0625rem", fontWeight: 800, color: "var(--w-ink)", lineHeight: 1.3, letterSpacing: "-0.01em", marginBottom: 6 }}>{p.title}</h3>
+                    <p style={{ fontSize: "0.9375rem", color: "var(--w-ink-soft)", lineHeight: 1.7 }}>{p.body}</p>
+                  </div>
                 </div>
-              </div>
+              </Rise>
             ))}
           </div>
         </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Cinematic video band ───────────────────────────────────────────────────
+
+function VideoBand() {
+  const quick = [
+    { v: "2 min", l: "to reach a parent" },
+    { v: "86%", l: "open every update" },
+    { v: "4+ hrs", l: "saved per teacher / term" },
+  ]
+  const videoRef = useRef<HTMLVideoElement>(null)
+  // Play only while the section is on screen; pause when it scrolls away.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const play = () => { v.play().catch(() => {}) }
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting && e.intersectionRatio > 0.35) play(); else v.pause() },
+      { threshold: [0, 0.35, 0.6] }
+    )
+    obs.observe(v)
+    return () => obs.disconnect()
+  }, [])
+  return (
+    <section
+      className="w-video-band"
+      style={{ minHeight: "min(88vh, 780px)", display: "flex", alignItems: "center" }}
+      aria-label="Why Scholr"
+      onMouseEnter={() => videoRef.current?.play().catch(() => {})}
+    >
+      <video ref={videoRef} autoPlay muted loop playsInline preload="metadata" poster="/landing/empathy.jpg" aria-hidden>
+        <source src="/landing/classroom-loop.mp4" type="video/mp4" />
+      </video>
+      <div className="w-video-scrim" aria-hidden />
+      {/* Cream wave edges overlaid ON the video, top flows from the section above,
+          bottom into the section below. No solid colour band, no seam. */}
+      <div style={{ position: "absolute", top: -1, left: 0, right: 0, zIndex: 3 }} aria-hidden>
+        <CurveDivider from="transparent" to="var(--w-cream)" flipY />
+      </div>
+      <div style={{ position: "absolute", bottom: -1, left: 0, right: 0, zIndex: 3 }} aria-hidden>
+        <CurveDivider from="transparent" to="var(--w-cream)" />
+      </div>
+      <div className="w-video-inner max-w-4xl mx-auto px-5 text-center" style={{ width: "100%", paddingTop: "clamp(96px, 14vw, 160px)", paddingBottom: "clamp(96px, 14vw, 160px)" }}>
+        <Rise>
+          <p className="w-label" style={{ color: "var(--w-amber)" }}>What calm feels like</p>
+          <h2 className="w-display" style={{ fontSize: "clamp(2.2rem, 5.4vw, 4.25rem)", lineHeight: 1.03, color: "oklch(99% 0.01 80)" }}>
+            When school feels close,<br />children flourish.
+          </h2>
+        </Rise>
+        <Rise delay={120}>
+          <p style={{ fontSize: "clamp(1.05rem, 1.5vw, 1.25rem)", color: "oklch(91% 0.02 78)", lineHeight: 1.7, maxWidth: "46ch", margin: "1.4rem auto 0" }}>
+            Scholr turns scattered school updates into one warm thread, so every child feels seen, at school and at home.
+          </p>
+        </Rise>
+        <Rise delay={240}>
+          <div className="flex flex-wrap justify-center gap-x-12 gap-y-5 mt-11">
+            {quick.map((q) => (
+              <div key={q.l} className="text-center">
+                <p className="w-display" style={{ fontSize: "clamp(1.9rem, 3.4vw, 2.6rem)", color: "var(--w-amber)", lineHeight: 1 }}>{q.v}</p>
+                <p style={{ fontSize: "0.8125rem", color: "oklch(84% 0.02 78)", fontWeight: 600, marginTop: 6, letterSpacing: "0.01em" }}>{q.l}</p>
+              </div>
+            ))}
+          </div>
+        </Rise>
       </div>
     </section>
   )
@@ -1031,28 +1210,18 @@ function RoleShowcase() {
     <section
       id="roles"
       ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ padding: "clamp(80px, 12vw, 130px) 20px", background: "var(--c-bg)" }}
+      style={{ padding: "clamp(72px, 11vw, 120px) 20px", background: "var(--w-sand)" }}
     >
       <div className="max-w-5xl mx-auto">
-        <div className="mb-12">
-          <p className="section-label">Built for every role</p>
-          <h2
-            className={`font-display reveal ${visible ? "visible" : ""}`}
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.08, letterSpacing: "-0.025em" }}
-          >
-            Three portals. One platform.
+        <div className="mb-10 text-center">
+          <p className="w-label">A warm welcome for everyone</p>
+          <h2 className={`w-display reveal ${visible ? "visible" : ""}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.08 }}>
+            Three people. One happy school.
           </h2>
         </div>
 
         <div className="flex justify-center mb-10" role="tablist" aria-label="User role">
-          <div style={{
-            display: "inline-flex",
-            background: "var(--c-surface)",
-            border: "1px solid var(--c-border)",
-            borderRadius: 14,
-            padding: 4,
-            gap: 2,
-          }}>
+          <div style={{ display: "inline-flex", background: "var(--w-paper)", border: "1px solid var(--w-line)", borderRadius: 100, padding: 5, gap: 3, boxShadow: "var(--w-shadow)" }}>
             {ROLE_TABS.map((t, i) => (
               <button
                 key={t.id}
@@ -1061,16 +1230,19 @@ function RoleShowcase() {
                 aria-selected={active === i}
                 aria-controls={`panel-${t.id}`}
                 id={`tab-${t.id}`}
-                className={`role-tab${active === i ? " role-tab-active" : ""}`}
+                className="w-role-tab"
                 style={{
-                  background: active === i ? "var(--c-bg)" : "transparent",
-                  color: active === i ? "var(--c-indigo)" : "var(--c-text-muted)",
-                  boxShadow: active === i ? "var(--shadow-sm)" : "none",
-                  fontWeight: active === i ? 600 : 500,
-                  transition: "background 200ms var(--ease-out), color 200ms var(--ease-out), box-shadow 200ms var(--ease-out)",
+                  display: "inline-flex", alignItems: "center", gap: 7, height: 42, padding: "0 18px",
+                  borderRadius: 100, fontSize: "0.9rem", border: "none", cursor: "pointer",
+                  background: active === i ? "var(--w-amber)" : "transparent",
+                  color: active === i ? "oklch(26% 0.06 58)" : "var(--w-ink-soft)",
+                  fontWeight: active === i ? 800 : 600,
+                  boxShadow: active === i ? "0 6px 16px -6px var(--w-amber)" : "none",
+                  transition: "background 220ms var(--ease-out), color 200ms var(--ease-out), box-shadow 220ms var(--ease-out)",
                 }}
                 onClick={() => setActive(i)}
               >
+                <t.icon size={15} strokeWidth={active === i ? 2.4 : 2} aria-hidden />
                 {t.label}
               </button>
             ))}
@@ -1086,45 +1258,37 @@ function RoleShowcase() {
           style={{ animation: "slide-up-fade 400ms var(--ease-out) both" }}
         >
           <div>
-            <h3
-              className="font-display mb-4"
-              style={{ fontSize: "clamp(1.5rem, 3vw, 2.25rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.08, letterSpacing: "-0.025em" }}
-            >
+            <h3 className="w-display mb-4" style={{ fontSize: "clamp(1.5rem, 3vw, 2.25rem)", lineHeight: 1.1 }}>
               {tab.headline}
             </h3>
-            <p style={{ fontSize: "1.0625rem", color: "var(--c-text-mid)", lineHeight: 1.75, maxWidth: "44ch", marginBottom: "2rem" }}>
+            <p style={{ fontSize: "1.0625rem", color: "var(--w-ink-soft)", lineHeight: 1.75, maxWidth: "44ch", marginBottom: "2rem" }}>
               {tab.sub}
             </p>
             <ul className="space-y-3.5 mb-8">
               {tab.features.map((f) => (
                 <li key={f} className="flex items-start gap-3">
-                  <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: tab.mockupColor }}
-                  >
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: tab.accent }}>
                     <Check size={11} className="text-white" aria-hidden strokeWidth={2.5} />
                   </div>
-                  <span style={{ fontSize: "0.9375rem", color: "var(--c-text)", lineHeight: 1.6 }}>{f}</span>
+                  <span style={{ fontSize: "0.9375rem", color: "var(--w-ink)", lineHeight: 1.6 }}>{f}</span>
                 </li>
               ))}
             </ul>
             <a
-              href="/signup"
-              className="hero-cta-primary group inline-flex"
-              style={{
-                background: tab.mockupColor,
-                color: "white",
-                boxShadow: "none",
-              }}
+              href={tab.ctaHref}
+              className="w-btn group inline-flex"
+              style={{ background: tab.accent, color: tab.id === "admin" ? "#fff" : "oklch(26% 0.06 58)" }}
             >
-              Get started free
-              <span
-                className="hero-cta-icon"
-                style={{ background: "rgba(255,255,255,0.2)" }}
-              >
-                <ArrowRight size={14} aria-hidden />
+              {tab.cta}
+              <span className="w-btn-icon" style={{ background: tab.id === "admin" ? "rgba(255,255,255,0.22)" : "oklch(26% 0.06 58)", color: tab.id === "admin" ? "#fff" : tab.accent }}>
+                <ArrowRight size={15} aria-hidden />
               </span>
             </a>
+            {tab.id !== "admin" && (
+              <p style={{ fontSize: "0.8125rem", color: "var(--w-ink-faint)", marginTop: "0.875rem" }}>
+                Your school sets up Scholr and invites you, no separate sign-up needed.
+              </p>
+            )}
           </div>
           <div className="flex justify-center lg:justify-end">
             <RoleMockup tab={tab} />
@@ -1136,51 +1300,119 @@ function RoleShowcase() {
 }
 
 function RoleMockup({ tab }: { tab: typeof ROLE_TABS[0] }) {
-  if (tab.id === "parent") return <ParentMockup color={tab.mockupColor} />
-  if (tab.id === "teacher") return <TeacherMockup color={tab.mockupColor} />
-  return <AdminMockup color={tab.mockupColor} />
+  // Parent → phone (mobile-first); Teacher → static attendance; Admin → live scripted demo
+  if (tab.id === "parent") {
+    return (
+      <div className="mockup-warm flex justify-center w-full">
+        <RolePhone />
+      </div>
+    )
+  }
+  return (
+    <div className="mockup-warm w-full" style={{ maxWidth: 520 }}>
+      <div className="laptop laptop-float">
+        <div className="laptop-lid">
+          <div className="laptop-cam" aria-hidden />
+          <div className="laptop-screen" style={{ aspectRatio: "16 / 10" }}>
+            {tab.id === "admin"
+              ? <ProductDemoScreen />
+              : <RoleScreen view="attendance" title="scholr.app / teacher" />}
+          </div>
+        </div>
+        <div className="laptop-base" aria-hidden><div className="laptop-notch" /></div>
+      </div>
+    </div>
+  )
 }
 
-function ParentMockup({ color }: { color: string }) {
+function RolePhone() {
+  const width = 232
+  const bezel = Math.round(width * 0.045)
+  const screenW = width - bezel * 2
+  const screenH = Math.round(screenW * 2.05)
+  const deviceH = screenH + bezel * 2
+  const deviceR = Math.round(width * 0.21)
   return (
-    <div className="phone-frame phone-float" style={{ width: 280 }}>
-      <div className="px-4 py-3" style={{ background: color }}>
-        <p className="text-xs font-semibold text-white/90">Parent Portal</p>
-        <p className="text-xs text-white/60">Good morning, Maria</p>
+    <div className="phone-float" style={{ position: "relative", width }}>
+      <div
+        style={{
+          width, height: deviceH, borderRadius: deviceR, padding: bezel, position: "relative",
+          background: "linear-gradient(150deg, oklch(40% 0.012 264) 0%, oklch(22% 0.012 264) 55%, oklch(15% 0.01 264) 100%)",
+          boxShadow: "inset 0 1px 1px oklch(70% 0.02 264 / 0.5), 0 0 0 1px oklch(46% 0.02 264 / 0.4), 0 30px 70px rgba(0,0,0,0.45), 0 0 80px oklch(46% 0.22 264 / 0.16)",
+        }}
+      >
+        <div style={{ position: "relative", width: screenW, height: screenH, borderRadius: deviceR - bezel, overflow: "hidden", background: "var(--c-bg)" }}>
+          <ParentPortalVertical />
+          <div style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", width: screenW * 0.34, height: Math.round(width * 0.085), borderRadius: 999, background: "#000", zIndex: 10 }} aria-hidden />
+          <div style={{ position: "absolute", bottom: 5, left: "50%", transform: "translateX(-50%)", width: screenW * 0.32, height: 3.5, borderRadius: 999, background: "oklch(40% 0.01 264 / 0.35)", zIndex: 10 }} aria-hidden />
+        </div>
       </div>
-      <div className="p-3 space-y-2.5" style={{ background: "var(--c-surface)" }}>
-        <div className="rounded-xl p-3" style={{ background: "oklch(100% 0 0)", border: "1px solid var(--c-border)" }}>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style={{ background: color }} aria-hidden>A</div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>Amara Osei-Mensah</p>
-              <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>Class 6B · Term 2, Week 3</p>
+    </div>
+  )
+}
+
+function ParentPortalVertical() {
+  return (
+    <div className="flex flex-col h-full" style={{ background: "var(--c-surface)", color: "var(--c-text)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* Status + header */}
+      <div style={{ background: "var(--c-indigo)", flexShrink: 0 }}>
+        <div className="flex items-center justify-between" style={{ padding: "6px 16px 2px" }}>
+          <span style={{ fontSize: 7.5, fontWeight: 800, color: "rgba(255,255,255,0.95)" }}>9:41</span>
+          <span style={{ width: 13, height: 6.5, borderRadius: 2, border: "1px solid rgba(255,255,255,0.65)", position: "relative", display: "inline-block" }}>
+            <span style={{ position: "absolute", top: 1, left: 1, bottom: 1, width: "75%", borderRadius: 1, background: "rgba(255,255,255,0.9)" }} />
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5" style={{ padding: "1px 12px 8px" }}>
+          <span className="font-bold flex-1" style={{ fontSize: 10.5, color: "#fff", letterSpacing: "-0.01em" }}>Parent Portal</span>
+          <Bell size={10} style={{ color: "rgba(255,255,255,0.7)" }} aria-hidden />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 p-2 space-y-1.5" style={{ overflow: "hidden" }}>
+        <div className="rounded-xl p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="rounded-full flex items-center justify-center text-white font-bold" style={{ width: 20, height: 20, background: "var(--c-indigo)", fontSize: 9 }}>A</div>
+            <div className="min-w-0">
+              <p className="font-bold" style={{ fontSize: 9, lineHeight: 1.1 }}>Amara Osei</p>
+              <p style={{ fontSize: 7, color: "var(--c-text-muted)" }}>Class 6B · St. Peter&apos;s</p>
             </div>
-            <div className="ml-auto w-2.5 h-2.5 rounded-full" style={{ background: "var(--c-emerald)" }} aria-label="Active today" />
+            <div className="ml-auto rounded-full shrink-0" style={{ width: 6, height: 6, background: "var(--c-emerald)" }} />
           </div>
-          <div className="h-px mb-3" style={{ background: "var(--c-border)" }} />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {[
-              { label: "Attendance", value: "97%", color: "var(--c-emerald)" },
-              { label: "Assignments", value: "2 pending", color: "var(--c-gold)" },
-              { label: "Last grade", value: "A (92%)", color },
-              { label: "New messages", value: "1", color: "var(--c-indigo)" },
-            ].map(({ label, value, color: c }) => (
-              <div key={label} className="rounded-lg p-2.5" style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}>
-                <p className="text-xs mb-1" style={{ color: "var(--c-text-muted)" }}>{label}</p>
-                <p className="text-sm font-bold" style={{ color: c }}>{value}</p>
+              { l: "Attendance", v: "97%", ok: true },
+              { l: "Homework", v: "2 due", ok: false },
+              { l: "Reports", v: "Published", ok: true },
+              { l: "Messages", v: "1 new", ok: false },
+            ].map(({ l, v, ok }) => (
+              <div key={l} className="rounded-lg p-1.5" style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}>
+                <p style={{ fontSize: 7, color: "var(--c-text-muted)", marginBottom: 1 }}>{l}</p>
+                <p className="font-bold" style={{ fontSize: 8.5, color: ok ? "var(--c-emerald)" : "var(--c-indigo)" }}>{v}</p>
               </div>
             ))}
           </div>
         </div>
-        <div className="rounded-xl p-2.5" style={{ background: "oklch(100% 0 0)", border: "1px solid var(--c-border)" }}>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Weekly Report</p>
-            <span className="badge badge-pro">✦ Pro</span>
+
+        <div className="rounded-xl p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="font-bold" style={{ fontSize: 8.5 }}>Friday story</p>
+            <span className="rounded-full px-1.5" style={{ fontSize: 6.5, fontWeight: 800, background: "var(--c-indigo-bg)", color: "var(--c-indigo)", paddingTop: 1, paddingBottom: 1 }}>✦ AI</span>
           </div>
-          <div className="rounded-lg p-2.5" style={{ background: "var(--c-indigo-bg)" }}>
-            <p className="text-xs font-bold mb-1" style={{ color: "var(--c-indigo)" }}>Excellent week, Amara</p>
-            <p className="text-xs" style={{ color: "var(--c-text-mid)" }}>5/5 days · 4/4 assignments · 2 teacher notes</p>
+          <div className="flex items-center gap-0.5 mb-1">
+            {[...Array(5)].map((_, i) => <Star key={i} size={8} style={{ fill: "var(--c-gold)", color: "var(--c-gold)" }} aria-hidden />)}
+            <span style={{ fontSize: 7, fontWeight: 700, marginLeft: 3 }}>Great week</span>
+          </div>
+          <p style={{ fontSize: 7, color: "var(--c-text-mid)", lineHeight: 1.4 }}>Strong participation and every homework in on time. Keep it up!</p>
+        </div>
+
+        <div className="rounded-xl p-1.5 flex items-start gap-1.5" style={{ background: "var(--c-red-bg)", border: "1px solid color-mix(in srgb, var(--c-red) 22%, transparent)" }}>
+          <div className="rounded flex items-center justify-center shrink-0" style={{ width: 13, height: 13, background: "var(--c-red)", marginTop: 1 }}>
+            <Bell size={7} className="text-white" aria-hidden />
+          </div>
+          <div>
+            <p className="font-bold" style={{ fontSize: 7.5 }}>Absence alert</p>
+            <p style={{ fontSize: 7, color: "var(--c-text-mid)", lineHeight: 1.3 }}>Marked absent today at 8:47am</p>
           </div>
         </div>
       </div>
@@ -1188,327 +1420,173 @@ function ParentMockup({ color }: { color: string }) {
   )
 }
 
-function TeacherMockup({ color }: { color: string }) {
+function RoleScreen({ view, title }: { view: "dashboard" | "attendance" | "parent"; title: string }) {
   return (
-    <div className="phone-frame phone-float" style={{ width: 280 }}>
-      <div className="px-4 py-3" style={{ background: color }}>
-        <p className="text-xs font-semibold text-white/90">Attendance · Class 6B</p>
-        <p className="text-xs text-white/60">Monday 2 June · 28 of 30 marked</p>
+    <div className="flex flex-col h-full" style={{ background: "var(--c-surface)", color: "var(--c-text)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* Browser-style top bar */}
+      <div className="flex items-center gap-1.5 px-2.5 shrink-0" style={{ height: 19, background: "var(--c-bg)", borderBottom: "1px solid var(--c-border)" }}>
+        <span className="rounded-full" style={{ width: 5, height: 5, background: "var(--c-red)" }} />
+        <span className="rounded-full" style={{ width: 5, height: 5, background: "var(--c-gold)" }} />
+        <span className="rounded-full" style={{ width: 5, height: 5, background: "var(--c-emerald)" }} />
+        <span className="flex-1 text-center truncate" style={{ fontSize: 7, color: "var(--c-text-muted)", fontWeight: 600 }}>{title}</span>
+        <span style={{ width: 14 }} />
       </div>
-      <div className="p-3" style={{ background: "var(--c-surface)" }}>
-        <div className="flex gap-2 mb-3">
-          {["All present", "Mark exceptions"].map((label, i) => (
-            <button key={label} type="button" className="flex-1 py-1.5 rounded-lg text-xs font-semibold" style={{
-              background: i === 0 ? color : "oklch(100% 0 0)",
-              color: i === 0 ? "oklch(100% 0 0)" : "var(--c-text-mid)",
-              border: i === 0 ? "none" : "1px solid var(--c-border)",
-            }}>{label}</button>
-          ))}
-        </div>
-        <div className="space-y-1.5">
-          {[
-            { n: "Adeyemi, Kofi", s: "present" },
-            { n: "Bannister, Lucy", s: "present" },
-            { n: "Chen, Marcus", s: "late" },
-            { n: "Diallo, Fatou", s: "absent" },
-            { n: "Eze, Chisom", s: "present" },
-            { n: "Foster, Mia", s: "present" },
-          ].map(({ n, s }) => (
-            <div key={n} className="flex items-center justify-between rounded-lg px-2.5 py-2" style={{
-              background: s === "absent" ? "oklch(97% 0.01 27)" : s === "late" ? "oklch(97% 0.015 65)" : "oklch(100% 0 0)",
-              border: "1px solid var(--c-border)",
-            }}>
-              <span className="text-xs font-medium" style={{ color: "var(--c-text)" }}>{n}</span>
-              <span className="text-xs font-semibold capitalize" style={{
-                color: s === "absent" ? "var(--c-red)" : s === "late" ? "var(--c-gold)" : "var(--c-emerald)",
-              }}>{s}</span>
+      <div className="flex-1 px-3 py-2.5" style={{ overflow: "hidden" }}>
+        {view === "dashboard"  && <DemoDashboard />}
+        {view === "attendance" && <DemoAttendance />}
+        {view === "parent"     && <DemoParent />}
+      </div>
+    </div>
+  )
+}
+
+function DemoParent() {
+  return (
+    <div className="grid grid-cols-2 gap-2 h-full">
+      {/* Left: child overview */}
+      <div className="space-y-2">
+        <div className="rounded-lg p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <div className="rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ width: 22, height: 22, background: "var(--c-indigo)", fontSize: 10 }}>A</div>
+            <div className="min-w-0">
+              <p className="font-bold" style={{ fontSize: 9.5, lineHeight: 1.1 }}>Amara Osei</p>
+              <p style={{ fontSize: 7, color: "var(--c-text-muted)" }}>Class 6B · Week 3</p>
             </div>
-          ))}
-        </div>
-        <button type="button" className="w-full mt-3 py-2.5 rounded-xl text-xs font-bold text-white" style={{ background: color }}>
-          Confirm — parents notified instantly
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function AdminMockup({ color }: { color: string }) {
-  return (
-    <div className="phone-frame phone-float" style={{ width: 280 }}>
-      <div className="px-4 py-3" style={{ background: "var(--c-navy)" }}>
-        <p className="text-xs font-semibold text-white/90">School Dashboard</p>
-        <p className="text-xs text-white/60">Heritage International · Abuja</p>
-      </div>
-      <div className="p-3 space-y-2.5" style={{ background: "var(--c-surface)" }}>
-        <div className="rounded-xl p-4 text-center" style={{ background: "var(--c-navy)" }}>
-          <p className="text-xs font-semibold mb-1" style={{ color: "oklch(55% 0.012 264)" }}>School Health Score</p>
-          <p className="font-display font-bold mb-1" style={{ fontSize: "3rem", color, lineHeight: 1.1 }}>84</p>
-          <p className="text-xs" style={{ color: "oklch(55% 0.012 264)" }}>+3 pts from last week</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { l: "Parent open rate", v: "86%", up: true },
-            { l: "Avg response time", v: "4.2h", up: true },
-            { l: "Fee collection", v: "78%", up: false },
-            { l: "AI usage", v: "61%", up: true },
-          ].map(({ l, v, up }) => (
-            <div key={l} className="rounded-lg p-2.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
-              <p className="text-xs mb-1" style={{ color: "var(--c-text-muted)" }}>{l}</p>
-              <div className="flex items-center gap-1">
-                <p className="text-sm font-bold" style={{ color: "var(--c-text)" }}>{v}</p>
-                <span style={{ fontSize: "0.625rem", color: up ? "var(--c-emerald)" : "var(--c-red)" }}>{up ? "↑" : "↓"}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Weekly Report ────────────────────────────────────────────────────────────
-
-function WeeklyReportSection() {
-  const { ref, visible } = useReveal()
-  return (
-    <section
-      ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ background: "var(--c-navy)", padding: "clamp(80px, 12vw, 130px) 20px" }}
-    >
-      <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-        <div>
-          <div className="badge badge-pro mb-6" style={{ fontSize: "0.6875rem", letterSpacing: "0.08em" }}>
-            <Sparkles size={12} aria-hidden />
-            Signature Feature
+            <div className="ml-auto rounded-full shrink-0" style={{ width: 6, height: 6, background: "var(--c-emerald)" }} />
           </div>
-          <h2
-            className={`font-display mb-6 reveal ${visible ? "visible" : ""}`}
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "oklch(97% 0.005 264)", lineHeight: 1.05, letterSpacing: "-0.025em" }}
-          >
-            Every Friday, your child's week — in seconds.
-          </h2>
-          <p
-            className={`mb-8 reveal reveal-delay-1 ${visible ? "visible" : ""}`}
-            style={{ fontSize: "1.0625rem", color: "oklch(62% 0.01 264)", lineHeight: 1.8, maxWidth: "44ch" }}
-          >
-            Attendance. Homework submitted vs missed. Every teacher comment posted that week. An AI-generated encouragement note, personal to your child. Automatically, every Friday at 5pm.
-          </p>
-          <ul className={`space-y-3 mb-10 reveal reveal-delay-2 ${visible ? "visible" : ""}`}>
+          <div className="grid grid-cols-2 gap-1.5">
             {[
-              "Days present visualised as a simple bar",
-              "Homework: submitted vs assigned with green/amber/red",
-              "AI note: warm, specific, never generic",
-              "'This Week in Class' — from the teacher's lesson notes",
-              "Next week preview: events, assignments already posted",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: "oklch(62% 0.15 65 / 0.2)", border: "1px solid oklch(62% 0.15 65 / 0.4)" }}>
-                  <Check size={10} style={{ color: "var(--c-gold)" }} aria-hidden strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: "0.9375rem", color: "oklch(72% 0.01 264)", lineHeight: 1.6 }}>{item}</span>
-              </li>
+              { l: "Attendance", v: "97%", c: "var(--c-emerald)" },
+              { l: "Homework", v: "2 due", c: "var(--c-gold)" },
+              { l: "Reports", v: "Published", c: "var(--c-emerald)" },
+              { l: "Messages", v: "1 new", c: "var(--c-indigo)" },
+            ].map(({ l, v, c }) => (
+              <div key={l} className="rounded-md p-1.5" style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}>
+                <p style={{ fontSize: 7, color: "var(--c-text-muted)", marginBottom: 1 }}>{l}</p>
+                <p className="font-bold" style={{ fontSize: 8.5, color: c }}>{v}</p>
+              </div>
             ))}
-          </ul>
-          <div
-            className={`inline-flex items-start gap-3 p-4 rounded-2xl reveal reveal-delay-3 ${visible ? "visible" : ""}`}
-            style={{ background: "oklch(62% 0.15 65 / 0.08)", border: "1px solid oklch(62% 0.15 65 / 0.2)", maxWidth: "44ch" }}
-          >
-            <TrendingUp size={18} style={{ color: "var(--c-gold)", flexShrink: 0, marginTop: 2 }} aria-hidden />
-            <p style={{ fontSize: "0.875rem", color: "oklch(70% 0.012 264)", lineHeight: 1.65 }}>
-              Schools sending the Weekly Report see parent NPS climb by an average of <strong style={{ color: "oklch(90% 0.01 264)" }}>22 points</strong> within one term.
-            </p>
           </div>
         </div>
+      </div>
 
-        <div className={`flex justify-center lg:justify-end reveal reveal-delay-2 ${visible ? "visible" : ""}`}>
-          <div style={{ width: 300 }}>
-            <div className="phone-frame phone-float">
-              <div className="px-5 py-4"
-                style={{ background: "linear-gradient(135deg, oklch(46% 0.22 264) 0%, oklch(38% 0.2 280) 100%)" }}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-white/70">Weekly Intelligence Report</p>
-                  <span className="badge badge-pro">✦ Pro</span>
-                </div>
-                <p className="text-base font-bold text-white">Amara Osei-Mensah</p>
-                <p className="text-xs text-white/60">Week 3 · Term 2 · Friday, 30 May 2025</p>
+      {/* Right: report + alert */}
+      <div className="space-y-2">
+        <div className="rounded-lg p-2" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="font-bold" style={{ fontSize: 9 }}>Friday story</p>
+            <span className="rounded-full px-1.5" style={{ fontSize: 6.5, fontWeight: 800, background: "var(--c-indigo-bg)", color: "var(--c-indigo)", paddingTop: 1, paddingBottom: 1 }}>✦ AI</span>
+          </div>
+          <div className="flex items-center gap-0.5 mb-1.5">
+            {[...Array(5)].map((_, i) => <Star key={i} size={8} style={{ fill: "var(--c-gold)", color: "var(--c-gold)" }} aria-hidden />)}
+            <span style={{ fontSize: 7, fontWeight: 700, marginLeft: 3 }}>Great week</span>
+          </div>
+          <p style={{ fontSize: 7, color: "var(--c-text-mid)", lineHeight: 1.4 }}>Strong participation and every homework in on time. Keep it up, Amara!</p>
+        </div>
+        <div className="rounded-lg p-1.5 flex items-start gap-1.5" style={{ background: "var(--c-red-bg)", border: "1px solid color-mix(in srgb, var(--c-red) 22%, transparent)" }}>
+          <div className="rounded flex items-center justify-center shrink-0" style={{ width: 13, height: 13, background: "var(--c-red)", marginTop: 1 }}>
+            <Bell size={7} className="text-white" aria-hidden />
+          </div>
+          <div>
+            <p className="font-bold" style={{ fontSize: 7.5 }}>Absence alert</p>
+            <p style={{ fontSize: 7, color: "var(--c-text-mid)", lineHeight: 1.3 }}>Marked absent today at 8:47am</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Friday story phone (used in the Features spotlight) ─────────────────────
+
+function WeeklyReportPhone() {
+  const width = 340
+  const bezel = Math.round(width * 0.043)
+  const screenW = width - bezel * 2
+  const screenH = Math.round(screenW * 1.92)
+  const deviceH = screenH + bezel * 2
+  const deviceR = Math.round(width * 0.2)
+  return (
+    <div className="phone-float" style={{ position: "relative", width }}>
+      <div
+        style={{
+          width, height: deviceH, borderRadius: deviceR, padding: bezel, position: "relative",
+          background: "linear-gradient(150deg, oklch(40% 0.012 264) 0%, oklch(22% 0.012 264) 55%, oklch(15% 0.01 264) 100%)",
+          boxShadow: "inset 0 1px 1px oklch(70% 0.02 264 / 0.5), 0 0 0 1px oklch(46% 0.02 264 / 0.4), 0 34px 80px rgba(0,0,0,0.5), 0 0 100px oklch(72% 0.15 64 / 0.22)",
+        }}
+      >
+        <div style={{ position: "relative", width: screenW, height: screenH, borderRadius: deviceR - bezel, overflow: "hidden", background: "var(--c-bg)" }}>
+          <div className="flex flex-col h-full" style={{ background: "var(--c-surface)", color: "var(--c-text)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            {/* Gradient header, warm */}
+            <div style={{ background: "linear-gradient(135deg, var(--c-indigo) 0%, oklch(54% 0.16 30) 100%)", flexShrink: 0 }}>
+              <div className="flex items-center justify-between" style={{ padding: "8px 18px 2px" }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.95)" }}>9:41</span>
+                <span style={{ width: 16, height: 8, borderRadius: 2.5, border: "1px solid rgba(255,255,255,0.65)", position: "relative", display: "inline-block" }}>
+                  <span style={{ position: "absolute", top: 1, left: 1, bottom: 1, width: "75%", borderRadius: 1.5, background: "rgba(255,255,255,0.9)" }} />
+                </span>
               </div>
-              <div className="p-4 space-y-3.5" style={{ background: "var(--c-surface)" }}>
-                <div className="rounded-xl p-3.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
-                  <div className="flex items-center justify-between mb-2.5">
-                    <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Attendance this week</p>
-                    <span className="text-xs font-bold" style={{ color: "var(--c-emerald)" }}>5/5</span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    {["M","T","W","T","F"].map((d) => (
-                      <div key={d} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full h-10 rounded-md" style={{ background: "var(--c-emerald)" }} />
-                        <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>{d}</p>
-                      </div>
-                    ))}
-                  </div>
+              <div style={{ padding: "4px 16px 13px" }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 600, color: "rgba(255,255,255,0.78)" }}>Amara&apos;s Friday story</span>
+                  <span className="rounded-full" style={{ fontSize: 8, fontWeight: 800, background: "rgba(255,255,255,0.18)", color: "#fff", padding: "2px 7px" }}>✦ Pro</span>
                 </div>
-                <div className="rounded-xl p-3.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold" style={{ color: "var(--c-text)" }}>Homework</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "oklch(95% 0.015 162)", color: "var(--c-emerald)" }}>4 of 4</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--c-border)" }}>
-                    <div className="h-full rounded-full" style={{ width: "100%", background: "var(--c-emerald)" }} />
-                  </div>
+                <p className="font-bold" style={{ fontSize: 15, color: "#fff", lineHeight: 1.1, letterSpacing: "-0.01em" }}>Amara Osei-Mensah</p>
+                <p style={{ fontSize: 9, color: "rgba(255,255,255,0.68)", marginTop: 1 }}>Week 3 · Term 2 · Fri 30 May</p>
+              </div>
+            </div>
+
+            {/* Cards */}
+            <div className="flex-1 p-3 space-y-2.5" style={{ overflow: "hidden" }}>
+              <div className="rounded-xl p-3" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold" style={{ fontSize: 10.5 }}>Attendance this week</p>
+                  <span className="font-bold" style={{ fontSize: 10.5, color: "var(--c-emerald)" }}>5/5</span>
                 </div>
-                <div className="rounded-xl p-3.5" style={{ background: "var(--c-indigo-bg)", border: "1px solid var(--c-border)" }}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Sparkles size={12} style={{ color: "var(--c-indigo)" }} aria-hidden />
-                    <p className="text-xs font-semibold" style={{ color: "var(--c-indigo)" }}>This week's note</p>
-                  </div>
-                  <p style={{ fontSize: "0.8125rem", color: "var(--c-text-mid)", lineHeight: 1.6 }}>
-                    "Amara showed exceptional focus this week, particularly during the science practical. Her question impressed the whole class."
-                  </p>
+                <div className="flex gap-1.5">
+                  {["M", "T", "W", "T", "F"].map((d, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full rounded-md" style={{ height: 34, background: "var(--c-emerald)" }} />
+                      <p style={{ fontSize: 8.5, color: "var(--c-text-muted)" }}>{d}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="rounded-xl p-3.5" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
-                  <p className="text-xs font-semibold mb-2" style={{ color: "var(--c-text)" }}>Next week</p>
-                  <div className="space-y-1.5">
-                    {[{ icon: Calendar, text: "Sports Day — Tuesday 6 June" }, { icon: BookOpen, text: "Maths test — Thursday 8 June" }].map(({ icon: Icon, text }) => (
-                      <div key={text} className="flex items-center gap-2">
-                        <Icon size={11} style={{ color: "var(--c-text-muted)", flexShrink: 0 }} aria-hidden />
-                        <p style={{ fontSize: "0.8125rem", color: "var(--c-text-mid)" }}>{text}</p>
-                      </div>
-                    ))}
-                  </div>
+              </div>
+
+              <div className="rounded-xl p-3" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold" style={{ fontSize: 10.5 }}>Homework</p>
+                  <span className="rounded-full" style={{ fontSize: 8.5, fontWeight: 700, background: "var(--c-emerald-bg)", color: "var(--c-emerald)", padding: "2px 8px" }}>4 of 4</span>
                 </div>
+                <div className="rounded-full overflow-hidden" style={{ height: 6, background: "var(--c-surface)" }}>
+                  <div className="h-full rounded-full" style={{ width: "100%", background: "var(--c-emerald)" }} />
+                </div>
+              </div>
+
+              <div className="rounded-xl p-3" style={{ background: "var(--c-gold-bg)", border: "1px solid color-mix(in srgb, var(--c-gold) 22%, transparent)" }}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Heart size={12} style={{ color: "var(--c-gold)" }} aria-hidden />
+                  <p className="font-bold" style={{ fontSize: 10, color: "var(--c-gold)" }}>This week&apos;s note</p>
+                </div>
+                <p style={{ fontSize: 9.5, color: "var(--c-text-mid)", lineHeight: 1.5 }}>
+                  &ldquo;Amara&apos;s curiosity lit up the science practical this week, her question had the whole class thinking.&rdquo;
+                </p>
+              </div>
+
+              <div className="rounded-xl p-3" style={{ background: "var(--c-bg)", border: "1px solid var(--c-border)" }}>
+                <p className="font-bold" style={{ fontSize: 10, marginBottom: 6 }}>Next week</p>
+                {[{ icon: Calendar, t: "Sports Day · Tuesday 6 June" }, { icon: BookOpen, t: "Maths test · Thursday 8 June" }].map(({ icon: Icon, t }) => (
+                  <div key={t} className="flex items-center gap-2" style={{ marginBottom: 3 }}>
+                    <Icon size={11} style={{ color: "var(--c-text-muted)" }} aria-hidden />
+                    <span style={{ fontSize: 9, color: "var(--c-text-mid)" }}>{t}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-  )
-}
 
-// ─── AI Features ──────────────────────────────────────────────────────────────
-
-function AIFeaturesSection() {
-  const { ref, visible } = useReveal()
-  const featured = AI_FEATURES[0]
-  const rest = AI_FEATURES.slice(1)
-
-  return (
-    <section
-      id="features"
-      ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ padding: "clamp(80px, 12vw, 130px) 20px", background: "var(--c-bg)" }}
-    >
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-          <div className={`reveal ${visible ? "visible" : ""}`}>
-            <p className="section-label">AI-powered</p>
-            <h2
-              className="font-display"
-              style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.05, letterSpacing: "-0.025em" }}
-            >
-              Intelligent features that<br />save hours, not minutes.
-            </h2>
-          </div>
-          <p
-            className={`reveal reveal-delay-1 ${visible ? "visible" : ""}`}
-            style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", maxWidth: "36ch", lineHeight: 1.75, flexShrink: 0 }}
-          >
-            Every AI feature is powered by Anthropic's Claude API. Fully auditable, fully deletable.
-          </p>
-        </div>
-
-        {/* Bento: large featured + 2 stacked */}
-        <div
-          className="grid gap-4 mb-5"
-          style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto" }}
-        >
-          {/* Featured card — spans 2 rows */}
-          <AICard feature={featured} delay={0} visible={visible} featured />
-
-          {/* Small cards */}
-          {rest.map((f, i) => (
-            <AICard key={f.id} feature={f} delay={i + 1} visible={visible} featured={false} />
-          ))}
-        </div>
-
-        <div
-          className={`p-5 rounded-2xl text-center reveal reveal-delay-3 ${visible ? "visible" : ""}`}
-          style={{ background: "var(--c-indigo-bg)", border: "1px solid oklch(80% 0.06 264)" }}
-        >
-          <p style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.65, maxWidth: "none", margin: "0 auto" }}>
-            All AI features are powered by <strong style={{ color: "var(--c-text)" }}>Anthropic's Claude API</strong>. Every output is tied to your school, fully auditable, and deletable on request.
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function AICard({
-  feature, delay, visible, featured,
-}: {
-  feature: typeof AI_FEATURES[0]
-  delay: number
-  visible: boolean
-  featured: boolean
-}) {
-  const [hovered, setHovered] = useState(false)
-  const Icon = feature.icon
-  const delayClass = `reveal-delay-${delay + 1}` as const
-
-  return (
-    <div
-      className={`bezel-outer reveal ${delayClass} ${visible ? "visible" : ""}`}
-      style={{ gridRow: featured ? "1 / 3" : undefined }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className="bezel-inner h-full" style={{ padding: featured ? "32px" : "28px" }}>
-        <div className="flex items-center justify-between mb-5">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "var(--c-indigo-bg)" }}>
-            <Icon size={18} style={{ color: "var(--c-indigo)" }} aria-hidden />
-          </div>
-          <span className="badge badge-ai">{feature.tag}</span>
-        </div>
-        <h3 className="font-semibold mb-2" style={{ fontSize: featured ? "1.25rem" : "1rem", color: "var(--c-text)", lineHeight: 1.3 }}>
-          {feature.title}
-        </h3>
-        <p style={{ fontSize: "0.9rem", color: "var(--c-text-mid)", lineHeight: 1.7, marginBottom: 16 }}>
-          {feature.body}
-        </p>
-        <div
-          className="ai-card-preview-panel"
-          aria-hidden
-          style={{
-            height: hovered ? (featured ? 180 : 120) : 0,
-            opacity: hovered ? 1 : 0,
-            transition: "height 320ms var(--ease-out), opacity 260ms var(--ease-out)",
-          }}
-        >
-          <div style={{
-            background: "var(--c-navy)",
-            borderRadius: 12,
-            padding: "14px 16px",
-            fontFamily: "monospace",
-            fontSize: "0.75rem",
-            lineHeight: 1.75,
-            color: "oklch(68% 0.01 264)",
-            height: "100%",
-            overflow: "hidden",
-          }}>
-            {feature.lines.map((line, i) => (
-              <div key={i} style={{
-                color: line.startsWith("\"") ? "oklch(82% 0.01 264)"
-                  : line.startsWith("⚠") || line.startsWith("→") ? "var(--c-gold)"
-                  : line.startsWith("Input") ? "oklch(75% 0.12 264)"
-                  : undefined,
-              }}>
-                {line || " "}
-              </div>
-            ))}
-          </div>
+          {/* Island + home indicator */}
+          <div style={{ position: "absolute", top: 7, left: "50%", transform: "translateX(-50%)", width: screenW * 0.32, height: Math.round(width * 0.08), borderRadius: 999, background: "#000", zIndex: 10 }} aria-hidden />
+          <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", width: screenW * 0.3, height: 4, borderRadius: 999, background: "oklch(40% 0.01 264 / 0.35)", zIndex: 10 }} aria-hidden />
         </div>
       </div>
     </div>
@@ -1517,178 +1595,74 @@ function AICard({
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 
+// Teaser, editorial split + typographic price ladder. Full grid lives on /pricing.
 function PricingSection() {
-  const [annual, setAnnual] = useState(false)
-  const { ref, visible } = useReveal()
-
+  const tiers = [
+    { name: "Free",       students: "Up to 100 students", price: "$0",     period: "forever" },
+    { name: "Pro",        students: "Up to 500 students", price: "$74",    period: "/mo", featured: true },
+    { name: "Enterprise", students: "Multi-campus",       price: "Custom", period: "" },
+  ]
   return (
-    <section
-      id="pricing"
-      ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ padding: "clamp(80px, 12vw, 130px) 20px", background: "var(--c-surface)" }}
-    >
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
-          <div>
-            <p className="section-label">Pricing</p>
-            <h2
-              className={`font-display reveal ${visible ? "visible" : ""}`}
-              style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.05, letterSpacing: "-0.025em" }}
-            >
-              Per school. Not per<br />teacher, not per parent.
-            </h2>
+    <section id="pricing" style={{ padding: "clamp(72px, 11vw, 120px) 20px", background: "var(--w-sand)", position: "relative", overflow: "hidden" }}>
+      {/* soft warm depth behind the ladder */}
+      <div aria-hidden className="w-breathe" style={{ position: "absolute", width: 460, height: 460, borderRadius: "50%", right: "-6%", top: "12%", background: "radial-gradient(circle, var(--w-amber-bg), transparent 68%)", opacity: 0.7, pointerEvents: "none" }} />
+
+      <div className="max-w-6xl mx-auto relative grid lg:grid-cols-[1.04fr_0.96fr] gap-12 lg:gap-20 items-center">
+        {/* Left, editorial statement */}
+        <Rise variant="left">
+          <p className="w-label">Pricing</p>
+          <h2 className="w-display" style={{ fontSize: "clamp(2rem, 4.2vw, 3.1rem)", lineHeight: 1.04 }}>
+            Free for your first 100 students.{" "}
+            <span style={{ color: "var(--w-amber-ink)" }}>Then one flat fee, per school.</span>
+          </h2>
+          <p style={{ fontSize: "clamp(1rem, 1.4vw, 1.15rem)", color: "var(--w-ink-soft)", lineHeight: 1.75, maxWidth: "46ch", marginTop: "1.25rem" }}>
+            Every parent, teacher and admin is included. No per-seat maths, no surprises.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 mt-9">
+            <a href="/pricing" className="w-btn group" style={{ justifyContent: "center" }}>
+              See full pricing <span className="w-btn-icon"><ArrowRight size={15} aria-hidden /></span>
+            </a>
+            <a href="/signup" className="w-btn-ghost" style={{ justifyContent: "center" }}>Start free</a>
           </div>
-          <div className="flex flex-col items-start md:items-end gap-4 flex-shrink-0">
-            <p
-              className={`reveal reveal-delay-1 ${visible ? "visible" : ""}`}
-              style={{ fontSize: "1.0rem", color: "var(--c-text-mid)", maxWidth: "38ch", lineHeight: 1.7, textAlign: "right" }}
-            >
-              One flat monthly fee. Every parent, teacher, and admin gets access.
-            </p>
-            <div className="billing-toggle">
-              <button type="button" className={`billing-option ${!annual ? "active" : ""}`} onClick={() => setAnnual(false)}>
-                Monthly
-              </button>
-              <button type="button" className={`billing-option ${annual ? "active" : ""}`} onClick={() => setAnnual(true)}>
-                Annual
-                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "oklch(95% 0.015 162)", color: "var(--c-emerald)" }}>
-                  2 months free
-                </span>
-              </button>
+          <p style={{ fontSize: "0.8125rem", color: "var(--w-ink-faint)", marginTop: "1.1rem" }}>
+            14-day Pro trial. No card required.
+          </p>
+        </Rise>
+
+        {/* Right, typographic price ladder */}
+        <Rise variant="right" delay={140} className="relative">
+          {tiers.map((t, i) => (
+            <div key={t.name}
+              className="flex items-end justify-between"
+              style={{
+                padding: t.featured ? "20px 22px" : "20px 4px",
+                marginTop: t.featured ? 8 : 0,
+                marginBottom: t.featured ? 8 : 0,
+                borderTop: (i > 0 && !t.featured && !tiers[i - 1].featured) ? "1px solid var(--w-line)" : "none",
+                borderRadius: t.featured ? 22 : 0,
+                background: t.featured ? "var(--w-amber)" : "transparent",
+                boxShadow: t.featured ? "0 1px 0 oklch(100% 0 0 / 0.4) inset, 0 20px 44px -18px oklch(62% 0.15 60 / 0.5)" : "none",
+              }}>
+              <div>
+                <div className="flex items-center gap-2" style={{ marginBottom: 4 }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase", color: t.featured ? "oklch(30% 0.06 56)" : "var(--w-ink-soft)" }}>{t.name}</span>
+                  {t.featured && (
+                    <span className="inline-flex items-center gap-1" style={{ fontSize: "0.58rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 8px", borderRadius: 100, background: "oklch(26% 0.06 58)", color: "var(--w-amber)" }}>
+                      <Sparkles size={9} strokeWidth={2} /> Most loved
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: "0.85rem", color: t.featured ? "oklch(34% 0.06 56)" : "var(--w-ink-faint)" }}>{t.students}</span>
+              </div>
+              <div className="flex items-baseline gap-1 shrink-0">
+                <span className="w-display" style={{ fontSize: "clamp(2rem, 3.4vw, 2.75rem)", lineHeight: 0.9, letterSpacing: "-0.03em", color: t.featured ? "oklch(22% 0.06 56)" : "var(--w-ink)" }}>{t.price}</span>
+                {t.period && <span style={{ fontSize: "0.8rem", color: t.featured ? "oklch(34% 0.06 56)" : "var(--w-ink-faint)" }}>{t.period}</span>}
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-5 items-start">
-          {PLANS.map((plan, i) => (
-            <PlanCard key={plan.id} plan={plan} annual={annual} delay={i} visible={visible} />
           ))}
-        </div>
-
-        <p className="text-center mt-8 text-sm" style={{ color: "var(--c-text-muted)" }}>
-          All plans include a 14-day free Pro trial. No credit card required.
-        </p>
+        </Rise>
       </div>
     </section>
-  )
-}
-
-function PlanCard({
-  plan, annual, delay, visible,
-}: {
-  plan: typeof PLANS[0]
-  annual: boolean
-  delay: number
-  visible: boolean
-}) {
-  const price = plan.monthlyPrice === null
-    ? "Custom"
-    : annual && plan.annualPrice !== undefined && plan.annualPrice !== null
-    ? `$${plan.annualPrice}`
-    : plan.monthlyPrice === 0
-    ? "$0"
-    : `$${plan.monthlyPrice}`
-
-  const delayClass = `reveal-delay-${delay + 1}` as const
-
-  if (plan.highlight) {
-    return (
-      <div className={`glass-pro-card reveal ${delayClass} ${visible ? "visible" : ""} relative`}
-        style={{ padding: 32, display: "flex", flexDirection: "column" }}>
-        {plan.badge && (
-          <div style={{
-            position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
-            background: "oklch(100% 0 0)", color: "var(--c-indigo)",
-            fontSize: "0.75rem", fontWeight: 700, padding: "5px 14px",
-            borderRadius: 20, whiteSpace: "nowrap",
-          }}>
-            {plan.badge}
-          </div>
-        )}
-        <div className="mb-6">
-          <p className="font-semibold mb-1" style={{ fontSize: "1rem", color: "oklch(100% 0 0 / 0.7)" }}>{plan.name}</p>
-          <div className="flex items-baseline gap-1 mb-1">
-            <span className="font-display font-bold" style={{ fontSize: "2.5rem", color: "white", lineHeight: 1.1 }}>
-              {price}
-            </span>
-            {plan.period && (
-              <span style={{ fontSize: "0.875rem", color: "oklch(100% 0 0 / 0.55)" }}>
-                {plan.period}{annual && plan.monthlyPrice ? " · billed annually" : ""}
-              </span>
-            )}
-          </div>
-          <p style={{ fontSize: "0.875rem", color: "oklch(100% 0 0 / 0.55)" }}>{plan.sub}</p>
-        </div>
-        <ul className="flex-1 space-y-2.5 mb-8">
-          {plan.features.map((f) => (
-            <li key={f} className="flex items-start gap-2.5">
-              <Check size={14} style={{ color: "oklch(80% 0.15 264)", flexShrink: 0, marginTop: 3 }} aria-hidden strokeWidth={2.5} />
-              <span style={{ fontSize: "0.9rem", color: "oklch(100% 0 0 / 0.75)", lineHeight: 1.55 }}>{f}</span>
-            </li>
-          ))}
-        </ul>
-        <button
-          type="button"
-          style={{
-            width: "100%", padding: "13px 20px", borderRadius: "var(--r-btn)", fontWeight: 700,
-            fontSize: "0.9375rem", cursor: "pointer",
-            background: "oklch(100% 0 0)", color: "var(--c-indigo)", border: "none",
-            transition: "background 180ms var(--ease-out), transform 160ms var(--ease-out)",
-          }}
-          onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.97)" }}
-          onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)" }}
-        >
-          {plan.cta}
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={`card card-hover reveal ${delayClass} ${visible ? "visible" : ""}`}
-      style={{ padding: 28, display: "flex", flexDirection: "column" }}
-    >
-      <div className="mb-6">
-        <p className="font-semibold mb-1" style={{ fontSize: "1rem", color: "var(--c-text)" }}>{plan.name}</p>
-        <div className="flex items-baseline gap-1 mb-1">
-          <span className="font-display font-bold" style={{ fontSize: "2.5rem", color: "var(--c-text)", lineHeight: 1.1 }}>
-            {price}
-          </span>
-          {plan.period && (
-            <span style={{ fontSize: "0.875rem", color: "var(--c-text-muted)" }}>
-              {plan.period}
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: "0.875rem", color: "var(--c-text-muted)" }}>{plan.sub}</p>
-      </div>
-      <ul className="flex-1 space-y-2.5 mb-8">
-        {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-2.5">
-            <Check size={14} style={{ color: "var(--c-emerald)", flexShrink: 0, marginTop: 3 }} aria-hidden strokeWidth={2.5} />
-            <span style={{ fontSize: "0.9rem", color: "var(--c-text-mid)", lineHeight: 1.55 }}>{f}</span>
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        style={{
-          width: "100%", padding: "12px 20px", borderRadius: "var(--r-btn)",
-          fontWeight: 600, fontSize: "0.9375rem", cursor: "pointer",
-          background: "transparent", color: "var(--c-text)",
-          border: "1.5px solid var(--c-border-mid)",
-          transition: "border-color 180ms var(--ease-out), background 180ms var(--ease-out), transform 160ms var(--ease-out)",
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--c-indigo)" }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--c-border-mid)" }}
-        onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.97)" }}
-        onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)" }}
-      >
-        {plan.cta}
-      </button>
-    </div>
   )
 }
 
@@ -1700,100 +1674,40 @@ function TestimonialsSection() {
     <section
       id="testimonials"
       ref={ref as React.RefObject<HTMLDivElement>}
-      style={{ padding: "clamp(80px, 12vw, 130px) 20px", background: "var(--c-bg)", overflow: "hidden" }}
+      style={{ padding: "clamp(72px, 11vw, 120px) 0", background: "var(--w-cream)", overflow: "hidden" }}
     >
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-12">
-          <p className="section-label">What schools say</p>
-          <h2
-            className={`font-display reveal ${visible ? "visible" : ""}`}
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.05, letterSpacing: "-0.025em" }}
-          >
-            Schools that made the switch.
+      <div className="max-w-6xl mx-auto px-5">
+        <div className="mb-12 text-center">
+          <p className="w-label">Loved by real schools</p>
+          <h2 className={`w-display reveal ${visible ? "visible" : ""}`} style={{ fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.05 }}>
+            Warm words from our schools.
           </h2>
         </div>
+      </div>
 
-        <div
-          className={`testimonial-scroll reveal ${visible ? "visible" : ""}`}
-          style={{ padding: "4px 0 16px" }}
-        >
-          {TESTIMONIALS.map((t) => (
-            <figure key={t.id} className="testimonial-card">
-              <div
-                className="bezel-outer h-full"
-                style={{ borderRadius: "22px", height: "100%" }}
-              >
-                <div className="bezel-inner h-full" style={{ padding: "28px", borderRadius: "calc(22px - 4px)" }}>
-                  <div className="flex gap-0.5 mb-4" aria-label="5 out of 5 stars">
-                    {[...Array(5)].map((_, j) => (
-                      <Star key={j} size={13} style={{ fill: "var(--c-gold)", color: "var(--c-gold)" }} aria-hidden />
-                    ))}
-                  </div>
-                  <blockquote
-                    style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.8, marginBottom: 24 }}
-                  >
-                    "{t.quote}"
+      <div className={`w-tmarquee reveal ${visible ? "visible" : ""}`}>
+          <div className="w-tmarquee-track">
+            {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
+              <figure key={`${t.id}-${i}`} className="w-tcard" aria-hidden={i >= TESTIMONIALS.length ? true : undefined}>
+                <div className="w-card w-card-hover h-full" style={{ padding: 28 }}>
+                  <Quote size={26} style={{ color: t.accent, opacity: 0.5, marginBottom: 12 }} aria-hidden />
+                  <blockquote style={{ fontSize: "0.9375rem", color: "var(--w-ink-soft)", lineHeight: 1.8, marginBottom: 24 }}>
+                    &ldquo;{t.quote}&rdquo;
                   </blockquote>
                   <figcaption className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                      style={{ background: t.color }}
-                      aria-hidden
-                    >
-                      {t.init}
-                    </div>
+                    <Photo src={t.photo} alt={t.name} tag="" radius="50%" style={{ width: 44, height: 44, flexShrink: 0, boxShadow: "none" }} />
                     <div>
-                      <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>{t.name}</p>
-                      <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>{t.role} · {t.school}</p>
-                      <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>{t.location}</p>
+                      <p style={{ fontWeight: 800, fontSize: "0.875rem", color: "var(--w-ink)" }}>{t.name}</p>
+                      <p style={{ fontSize: "0.75rem", color: "var(--w-ink-faint)" }}>{t.role} · {t.school}</p>
+                      <p style={{ fontSize: "0.75rem", color: "var(--w-ink-faint)" }}>{t.location}</p>
                     </div>
                   </figcaption>
                 </div>
-              </div>
-            </figure>
-          ))}
-        </div>
+              </figure>
+            ))}
+          </div>
       </div>
     </section>
-  )
-}
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-
-function StatsSection() {
-  const STATS = [
-    { target: 800, suffix: "+", label: "Schools onboarded" },
-    { target: 86, suffix: "%", label: "Parent open rate" },
-    { target: 4, suffix: ".9★", label: "Average rating" },
-    { target: 43, suffix: "s", label: "Average notification time" },
-  ]
-
-  return (
-    <section
-      style={{ background: "var(--c-surface)", padding: "clamp(64px, 8vw, 96px) 20px", borderTop: "1px solid var(--c-border)", borderBottom: "1px solid var(--c-border)" }}
-      aria-label="Platform statistics"
-    >
-      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-        {STATS.map((stat) => (
-          <StatItem key={stat.label} {...stat} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function StatItem({ target, suffix, label }: { target: number; suffix: string; label: string }) {
-  const { ref, value } = useCounter(target, 1800)
-  return (
-    <div ref={ref as React.RefObject<HTMLDivElement>} className="text-center">
-      <p
-        className="font-display counter-value"
-        style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.1, letterSpacing: "-0.03em" }}
-      >
-        {value}{suffix}
-      </p>
-      <p style={{ fontSize: "0.8125rem", color: "var(--c-text-muted)", marginTop: 6, fontWeight: 500 }}>{label}</p>
-    </div>
   )
 }
 
@@ -1806,51 +1720,49 @@ function FAQSection() {
 
   return (
     <section
-      style={{ padding: "clamp(80px, 12vw, 130px) 20px", background: "var(--c-surface)" }}
+      style={{ padding: "clamp(72px, 11vw, 120px) 20px", background: "var(--w-cream)" }}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_1.6fr] gap-14 lg:gap-20 items-start">
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_1.6fr] gap-12 lg:gap-20 items-start">
         <div className={`reveal ${visible ? "visible" : ""}`}>
-          <p className="section-label">FAQ</p>
-          <h2
-            className="font-display"
-            style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)", fontWeight: 800, color: "var(--c-text)", lineHeight: 1.05, letterSpacing: "-0.025em", marginBottom: "1rem" }}
-          >
+          <p className="w-label">Good to know</p>
+          <h2 className="w-display" style={{ fontSize: "clamp(2rem, 4vw, 2.75rem)", lineHeight: 1.05, marginBottom: "1rem" }}>
             Common questions
           </h2>
-          <p style={{ fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.75 }}>
-            Everything you need to know before getting started. Can't find what you're looking for? Chat with us.
+          <p style={{ fontSize: "0.9375rem", color: "var(--w-ink-soft)", lineHeight: 1.75 }}>
+            Everything you need to know before getting started. Can&apos;t find what you&apos;re looking for? We&apos;re happy to chat.
           </p>
         </div>
-        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+        <div className="w-card overflow-hidden" style={{ borderRadius: 28, padding: 0 }}>
           {FAQ_ITEMS.map((item, i) => (
-            <div key={i} style={{ borderBottom: i < FAQ_ITEMS.length - 1 ? "1px solid var(--c-border)" : "none" }}>
+            <div key={i} style={{ borderBottom: i < FAQ_ITEMS.length - 1 ? "1px solid var(--w-line)" : "none" }}>
               <button
                 type="button"
                 aria-expanded={open === i}
                 aria-controls={`faq-${i}`}
                 id={`faq-btn-${i}`}
-                className="faq-item-btn"
+                className="w-faq-btn"
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 16, padding: "22px 24px", cursor: "pointer", border: "none", textAlign: "left",
+                  background: open === i ? "var(--w-amber-bg)" : "transparent",
+                  transition: "background 150ms var(--ease-out)",
+                }}
                 onClick={() => toggle(i)}
               >
-                <span style={{
-                  fontSize: "0.9375rem",
-                  fontWeight: open === i ? 600 : 500,
-                  color: open === i ? "var(--c-indigo)" : "var(--c-text)",
-                  lineHeight: 1.5,
-                  transition: "color 150ms var(--ease-out)",
-                }}>
+                <span style={{ fontSize: "0.9375rem", fontWeight: open === i ? 800 : 600, color: open === i ? "var(--w-amber-ink)" : "var(--w-ink)", lineHeight: 1.5, transition: "color 150ms var(--ease-out)" }}>
                   {item.q}
                 </span>
-                <ChevronDown size={18} className="faq-chevron" aria-hidden />
+                <ChevronDown size={18} aria-hidden style={{ flexShrink: 0, color: open === i ? "var(--w-amber-ink)" : "var(--w-ink-faint)", transform: open === i ? "rotate(180deg)" : "none", transition: "transform 280ms var(--ease-out), color 150ms var(--ease-out)" }} />
               </button>
               <div
                 id={`faq-${i}`}
                 role="region"
                 aria-labelledby={`faq-btn-${i}`}
-                className={`faq-answer ${open === i ? "open" : ""}`}
+                className="faq-answer"
+                style={{ overflow: "hidden", maxHeight: open === i ? 360 : 0, opacity: open === i ? 1 : 0, transition: "max-height 320ms var(--ease-out), opacity 260ms var(--ease-out)" }}
               >
-                <p style={{ padding: "0 24px 22px", fontSize: "0.9375rem", color: "var(--c-text-mid)", lineHeight: 1.75 }}>
+                <p style={{ padding: "0 24px 22px", fontSize: "0.9375rem", color: "var(--w-ink-soft)", lineHeight: 1.75 }}>
                   {item.a}
                 </p>
               </div>
@@ -1862,74 +1774,50 @@ function FAQSection() {
   )
 }
 
-// ─── Final CTA ────────────────────────────────────────────────────────────────
+// ─── Final CTA, warm cocoa with curved top ──────────────────────────────────
 
 function FinalCTA() {
   const { ref, visible } = useReveal()
   return (
     <section
       ref={ref as React.RefObject<HTMLDivElement>}
-      style={{
-        padding: "clamp(80px, 14vw, 140px) 20px",
-        background: "var(--c-navy)",
-        position: "relative",
-        overflow: "hidden",
-      }}
+      style={{ background: "var(--w-cocoa)", position: "relative" }}
       aria-label="Get started with Scholr"
     >
-      {/* Glow */}
-      <div aria-hidden style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse 60% 60% at 50% 50%, oklch(46% 0.22 264 / 0.2) 0%, transparent 70%)",
-      }} />
-      <div className="max-w-3xl mx-auto text-center relative">
-        <h2
-          className={`font-display mb-6 reveal ${visible ? "visible" : ""}`}
-          style={{ fontSize: "clamp(2.25rem, 5vw, 3.75rem)", fontWeight: 800, color: "oklch(97% 0.005 264)", lineHeight: 1.0, letterSpacing: "-0.03em" }}
-        >
-          Your school deserves better than WhatsApp.
-        </h2>
-        <p
-          className={`mb-10 reveal reveal-delay-1 ${visible ? "visible" : ""}`}
-          style={{
-            fontSize: "1.125rem",
-            color: "oklch(60% 0.012 264)",
-            maxWidth: "44ch",
-            margin: "0 auto 40px",
-            lineHeight: 1.8,
-          }}
-        >
-          Join 800+ schools across the US, UK, Nigeria, Ghana, and Canada. Setup takes 15 minutes. Free for schools under 100 students, forever.
-        </p>
-        <div className={`flex flex-col sm:flex-row gap-4 justify-center reveal reveal-delay-2 ${visible ? "visible" : ""}`}>
-          <a
-            href="/signup"
-            className="hero-cta-primary group"
-            style={{
-              background: "oklch(100% 0 0)",
-              color: "var(--c-indigo)",
-              justifyContent: "center",
-            }}
+      <div style={{ background: "var(--w-cocoa)", padding: "clamp(56px, 10vw, 110px) 20px clamp(80px, 14vw, 130px)", position: "relative", overflow: "hidden" }}>
+        {/* Warm glow */}
+        <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 60% 60% at 50% 40%, oklch(72% 0.155 64 / 0.2) 0%, transparent 70%)" }} />
+        <div className="max-w-3xl mx-auto text-center relative">
+          <h2
+            className={`w-display mb-6 reveal ${visible ? "visible" : ""}`}
+            style={{ fontSize: "clamp(2.25rem, 5vw, 3.75rem)", lineHeight: 1.02, color: "oklch(98% 0.01 80)" }}
           >
-            Get your school on Scholr — it's free
-            <span className="hero-cta-icon">
-              <ArrowRight size={15} aria-hidden />
-            </span>
-          </a>
-          <button
-            type="button"
-            className="hero-cta-ghost"
-            style={{ justifyContent: "center" }}
+            Let&apos;s bring your school closer together.
+          </h2>
+          <p
+            className={`mb-10 reveal reveal-delay-1 ${visible ? "visible" : ""}`}
+            style={{ fontSize: "1.125rem", color: "oklch(82% 0.02 75)", maxWidth: "46ch", margin: "0 auto 40px", lineHeight: 1.8 }}
           >
-            Talk to us first
-          </button>
+            Join 800+ schools across the US, UK, Nigeria, Ghana and Canada. Setup takes 15 minutes. Free for schools under 100 students.
+          </p>
+          <div className={`flex flex-col sm:flex-row gap-4 justify-center reveal reveal-delay-2 ${visible ? "visible" : ""}`}>
+            <a href="/signup" className="w-btn group" style={{ justifyContent: "center" }}>
+              Get your school on Scholr
+              <span className="w-btn-icon"><ArrowRight size={15} aria-hidden /></span>
+            </a>
+            <a href="mailto:abrahamayoola35@gmail.com" className="w-btn-ghost" style={{ justifyContent: "center", background: "oklch(100% 0 0 / 0.08)", border: "1.5px solid oklch(100% 0 0 / 0.2)", color: "oklch(94% 0.01 80)" }}>
+              Talk to us first
+            </a>
+          </div>
+          <p className={`mt-7 reveal reveal-delay-3 ${visible ? "visible" : ""}`} style={{ fontSize: "0.875rem" }}>
+            <a href="/find-school" style={{ color: "var(--w-amber)", fontWeight: 700, textDecoration: "none" }}>
+              Teacher or parent? Find your school →
+            </a>
+          </p>
+          <p className={`mt-4 text-sm reveal reveal-delay-3 ${visible ? "visible" : ""}`} style={{ color: "oklch(64% 0.015 70)" }}>
+            No credit card required · Cancel anytime · FERPA and GDPR compliant
+          </p>
         </div>
-        <p
-          className={`mt-8 text-sm reveal reveal-delay-3 ${visible ? "visible" : ""}`}
-          style={{ color: "oklch(45% 0.008 264)" }}
-        >
-          No credit card required · Cancel anytime · FERPA and GDPR compliant
-        </p>
       </div>
     </section>
   )
@@ -1939,18 +1827,18 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer aria-label="Site footer" style={{ background: "oklch(8% 0.02 264)", padding: "64px 20px 32px" }}>
+    <footer aria-label="Site footer" style={{ background: "var(--w-cocoa-2)", padding: "64px 20px 32px" }}>
       <div className="max-w-6xl mx-auto">
-        <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <Rise className="grid md:grid-cols-4 gap-10 mb-12">
           <div>
             <a href="/" aria-label="Scholr home" className="flex items-center gap-2.5 mb-4" style={{ textDecoration: "none" }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--c-indigo)" }}>
-                <GraduationCap size={16} className="text-white" aria-hidden />
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "var(--w-amber)" }}>
+                <GraduationCap size={16} aria-hidden style={{ color: "oklch(26% 0.06 58)" }} />
               </div>
-              <span className="font-display text-xl" style={{ fontWeight: 800, letterSpacing: "-0.03em", color: "oklch(97% 0.005 264)" }}>Scholr</span>
+              <span className="w-display text-xl" style={{ color: "oklch(97% 0.01 80)" }}>Scholr</span>
             </a>
-            <p className="text-sm leading-relaxed mb-5" style={{ color: "oklch(50% 0.01 264)", maxWidth: "28ch" }}>
-              Premium school communication for modern schools. Where parents, teachers, and families connect.
+            <p className="text-sm leading-relaxed mb-5" style={{ color: "oklch(70% 0.015 70)", maxWidth: "28ch" }}>
+              Warm school communication for modern schools, where parents, teachers and families stay close.
             </p>
             <div className="flex gap-3 flex-wrap">
               {["🇺🇸", "🇬🇧", "🇳🇬", "🇬🇭", "🇨🇦"].map((flag) => (
@@ -1960,41 +1848,38 @@ function Footer() {
           </div>
           {FOOTER_NAV.map((col) => (
             <nav key={col.title} aria-label={`${col.title} links`}>
-              <p className="font-semibold text-sm mb-4" style={{ color: "oklch(97% 0.005 264)" }}>{col.title}</p>
+              <p className="font-bold text-sm mb-4" style={{ color: "oklch(95% 0.01 80)" }}>{col.title}</p>
               <ul className="space-y-2.5">
                 {col.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="/"
-                      style={{ fontSize: "0.875rem", color: "oklch(48% 0.008 264)", textDecoration: "none", transition: "color 150ms var(--ease-out)" }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(78% 0.01 264)" }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(48% 0.008 264)" }}
+                      href={link.href}
+                      style={{ fontSize: "0.875rem", color: "oklch(66% 0.015 70)", textDecoration: "none", transition: "color 150ms var(--ease-out)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--w-amber)" }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(66% 0.015 70)" }}
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
               </ul>
             </nav>
           ))}
-        </div>
-        <div
-          className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4"
-          style={{ borderTop: "1px solid oklch(22% 0.02 264)" }}
-        >
-          <p style={{ fontSize: "0.8125rem", color: "oklch(38% 0.007 264)" }}>© 2026 Scholr. All rights reserved.</p>
+        </Rise>
+        <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderTop: "1px solid oklch(34% 0.02 58)" }}>
+          <p style={{ fontSize: "0.8125rem", color: "oklch(58% 0.015 68)" }}>© 2026 Scholr. Made with care.</p>
           <div className="flex gap-6">
-            {["Privacy Policy", "Terms of Service", "Cookie Policy"].map((l) => (
-              <a key={l} href="/"
-                style={{ fontSize: "0.8125rem", color: "oklch(38% 0.007 264)", textDecoration: "none", transition: "color 150ms var(--ease-out)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(65% 0.01 264)" }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(38% 0.007 264)" }}
+            {[{ l: "Privacy Policy", h: "/privacy" }, { l: "Terms of Service", h: "/terms" }].map(({ l, h }) => (
+              <a key={l} href={h}
+                style={{ fontSize: "0.8125rem", color: "oklch(58% 0.015 68)", textDecoration: "none", transition: "color 150ms var(--ease-out)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(80% 0.015 72)" }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "oklch(58% 0.015 68)" }}
               >
                 {l}
               </a>
             ))}
           </div>
-          <p style={{ fontSize: "0.8125rem", color: "oklch(38% 0.007 264)" }}>FERPA · GDPR · COPPA compliant</p>
+          <p style={{ fontSize: "0.8125rem", color: "oklch(58% 0.015 68)" }}>FERPA · GDPR · COPPA compliant</p>
         </div>
       </div>
     </footer>
@@ -2004,21 +1889,47 @@ function Footer() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
+  // Scroll-linked motion (parallax + cinematic video scrub). Reduced-motion safe.
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const ctx = gsap.context(() => {
+      gsap.utils.toArray<HTMLElement>("[data-parallax]").forEach((el) => {
+        const speed = parseFloat(el.dataset.parallax || "0")
+        gsap.to(el, {
+          yPercent: speed,
+          ease: "none",
+          scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: 0.6 },
+        })
+      })
+      const video = document.querySelector(".w-video-band video")
+      if (video) {
+        gsap.fromTo(video, { scale: 1.16 }, {
+          scale: 1, ease: "none",
+          scrollTrigger: { trigger: ".w-video-band", start: "top bottom", end: "bottom top", scrub: true },
+        })
+      }
+    })
+    const refresh = () => ScrollTrigger.refresh()
+    window.addEventListener("load", refresh)
+    const t = setTimeout(refresh, 600)
+    return () => { window.removeEventListener("load", refresh); clearTimeout(t); ctx.revert() }
+  }, [])
+
   return (
-    <div style={{ minHeight: "100vh", background: "var(--c-bg)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--w-cream)", overflowX: "clip" }}>
+      <SmoothScroll />
       <Nav />
       <main>
         <Hero />
         <Marquee />
-        <ValuePropsSection />
+        <VideoBand />
         <ProblemSection />
+        <FeaturesSection />
         <RoleShowcase />
-        <WeeklyReportSection />
-        <AIFeaturesSection />
         <PricingSection />
         <TestimonialsSection />
-        <StatsSection />
         <FAQSection />
+        <CurveDivider from="var(--w-cream)" to="var(--w-cocoa)" />
         <FinalCTA />
       </main>
       <Footer />

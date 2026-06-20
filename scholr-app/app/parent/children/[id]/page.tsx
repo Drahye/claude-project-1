@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { avatarColor, getInitials, formatDate } from "@/lib/utils"
+import { signStudentPhoto } from "@/lib/student-photo"
+import ChildEditor from "./ChildEditor"
 import {
   ArrowLeft, CheckCircle2, XCircle, Clock, BookOpen,
   MessageSquare, Sparkles, Calendar,
@@ -31,6 +33,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
     .from("students")
     .select(`
       id, full_name, photo_url, admission_number, date_of_birth, gender,
+      personal, medical, activities,
       enrollments:student_class_enrollments(
         class:classes(id, name, grade_level, teacher_id)
       )
@@ -39,6 +42,8 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
     .single() as unknown as { data: any | null }
 
   if (!student) notFound()
+
+  const photoDisplay = await signStudentPhoto(student.photo_url)
 
   const cls       = student.enrollments?.[0]?.class
   const classId   = cls?.id ?? null
@@ -118,10 +123,12 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
       <div className="card p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shrink-0"
+            className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center text-white text-2xl font-bold shrink-0"
             style={{ background: avatarColor(student.full_name) }}
           >
-            {getInitials(student.full_name)}
+            {photoDisplay
+              ? <img src={photoDisplay} alt={student.full_name} className="w-full h-full object-cover" />
+              : getInitials(student.full_name)}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -155,13 +162,24 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Attendance summary strip */}
-        <div className="grid grid-cols-4 gap-3 mt-6 pt-6" style={{ borderTop: "1px solid var(--c-border)" }}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6" style={{ borderTop: "1px solid var(--c-border)" }}>
           <Stat label="Attendance" value={attPct !== null ? `${attPct}%` : "—"}
             color={attPct !== null && attPct >= 80 ? "var(--c-emerald)" : attPct !== null ? "var(--c-red)" : "var(--c-text-muted)"} />
           <Stat label="Present" value={String(present)} color="var(--c-emerald)" />
           <Stat label="Late" value={String(late)} color="var(--c-gold)" />
           <Stat label="Absent" value={String(absent)} color={absent > 0 ? "var(--c-red)" : "var(--c-text)"} />
         </div>
+      </div>
+
+      {/* Parent-contributed profile: about, medical, photo (+ teacher activities) */}
+      <div className="mb-6">
+        <ChildEditor
+          childId={student.id}
+          firstName={student.full_name.split(" ")[0]}
+          personal={student.personal ?? null}
+          medical={student.medical ?? null}
+          activities={Array.isArray(student.activities) ? student.activities : null}
+        />
       </div>
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-6">

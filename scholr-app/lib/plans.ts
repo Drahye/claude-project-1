@@ -82,6 +82,11 @@ export const PLANS = [
   },
 ]
 
+/** A school is "paid" on any plan above Free (starter/pro/enterprise). */
+export function isPaidPlan(plan?: string | null): boolean {
+  return !!plan && plan !== "free"
+}
+
 export type FeatureValue = boolean | string
 
 export interface FeatureRow {

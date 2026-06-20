@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import Link from "next/link"
 import { Plus, X, Loader2, BookOpen, CheckCircle2, Users } from "lucide-react"
 import { avatarColor, getInitials } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -158,7 +159,7 @@ export default function ClassesPanel({ classes: initial, teachers, schoolId }: P
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {classes.map(cls => (
-            <div key={cls.id} className="card p-5">
+            <Link key={cls.id} href={`/admin/classes/${cls.id}`} className="card p-5 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]" style={{ textDecoration: "none" }}>
               <div className="flex items-start justify-between mb-4">
                 <div
                   className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm"
@@ -185,7 +186,7 @@ export default function ClassesPanel({ classes: initial, teachers, schoolId }: P
                   </p>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

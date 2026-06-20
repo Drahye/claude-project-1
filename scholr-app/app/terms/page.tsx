@@ -3,7 +3,7 @@ import Link from "next/link"
 import { ArrowLeft, GraduationCap } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Scholr",
+  title: "Terms of Service, Scholr",
   description: "The terms and conditions governing your use of Scholr.",
 }
 
@@ -18,7 +18,7 @@ const SECTIONS = [
   },
   {
     title: "3. Account registration",
-    body: `You must provide accurate, current, and complete information when registering. You are responsible for maintaining the confidentiality of your credentials and for all activity under your account. Notify us immediately at hello@scholr.app if you suspect unauthorised access.
+    body: `You must provide accurate, current, and complete information when registering. You are responsible for maintaining the confidentiality of your credentials and for all activity under your account. Notify us immediately at abrahamayoola35@gmail.com if you suspect unauthorised access.
 
 Each school account may have one admin. The admin is responsible for managing teacher and parent access within their school.`,
   },
@@ -38,7 +38,7 @@ We reserve the right to suspend or terminate accounts that violate these terms.`
     title: "5. Subscription and payment",
     body: `Scholr offers Free and paid plans. Paid plans are billed monthly or annually via Stripe. All prices are in USD unless otherwise stated.
 
-You may cancel at any time from Settings → Billing. Cancellation takes effect at the end of the current billing period — you retain access until then. We do not offer refunds for partial periods except where required by law.
+You may cancel at any time from Settings → Billing. Cancellation takes effect at the end of the current billing period, you retain access until then. We do not offer refunds for partial periods except where required by law.
 
 We may change pricing with 30 days' notice. Continued use after the effective date constitutes acceptance of the new pricing.`,
   },
@@ -84,25 +84,25 @@ We are not liable for indirect, incidental, special, or consequential damages, i
     title: "14. Contact",
     body: `Questions about these Terms? Contact us at:
 
-hello@scholr.app
+abrahamayoola35@gmail.com
 Scholr Inc., Lagos, Nigeria`,
   },
 ]
 
 export default function TermsPage() {
   return (
-    <div style={{ background: "var(--c-bg)", minHeight: "100vh" }}>
+    <div style={{ background: "var(--w-cream)", minHeight: "100vh" }}>
       {/* Nav */}
       <header className="sticky top-0 z-40 h-16 flex items-center justify-between px-6"
-        style={{ background: "var(--c-bg)", borderBottom: "1px solid var(--c-border)", backdropFilter: "blur(12px)" }}>
-        <Link href="/" className="flex items-center gap-2 text-sm font-bold" style={{ color: "var(--c-text)", textDecoration: "none" }}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--c-indigo)" }}>
+        style={{ background: "var(--w-cream)", borderBottom: "1px solid var(--w-line)", backdropFilter: "blur(12px)" }}>
+        <Link href="/" className="flex items-center gap-2 text-sm font-bold" style={{ color: "var(--w-ink)", textDecoration: "none" }}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "var(--w-amber-ink)" }}>
             <GraduationCap size={14} className="text-white" />
           </div>
           Scholr
         </Link>
         <Link href="/" className="flex items-center gap-1.5 text-sm font-medium hover:opacity-70 transition-opacity"
-          style={{ color: "var(--c-text-muted)", textDecoration: "none" }}>
+          style={{ color: "var(--w-ink-soft)", textDecoration: "none" }}>
           <ArrowLeft size={14} /> Back to home
         </Link>
       </header>
@@ -110,17 +110,17 @@ export default function TermsPage() {
       <div style={{ maxWidth: 740, margin: "0 auto", padding: "60px 24px 80px" }}>
         {/* Hero */}
         <div className="mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-indigo)" }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--w-amber-ink)" }}>
             Legal
           </p>
           <h1 className="text-4xl font-extrabold tracking-tight mb-4"
-            style={{ color: "var(--c-text)", letterSpacing: "-0.03em" }}>
+            style={{ color: "var(--w-ink)", letterSpacing: "-0.03em" }}>
             Terms of Service
           </h1>
-          <p className="text-base leading-relaxed" style={{ color: "var(--c-text-muted)" }}>
+          <p className="text-base leading-relaxed" style={{ color: "var(--w-ink-soft)" }}>
             Last updated: June 2025
           </p>
-          <p className="text-base leading-relaxed mt-3" style={{ color: "var(--c-text-muted)" }}>
+          <p className="text-base leading-relaxed mt-3" style={{ color: "var(--w-ink-soft)" }}>
             Please read these terms carefully before using Scholr. They govern your access to and use of the platform.
           </p>
         </div>
@@ -129,10 +129,10 @@ export default function TermsPage() {
         <div className="space-y-10">
           {SECTIONS.map(section => (
             <div key={section.title}>
-              <h2 className="text-lg font-bold mb-3" style={{ color: "var(--c-text)", letterSpacing: "-0.01em" }}>
+              <h2 className="text-lg font-bold mb-3" style={{ color: "var(--w-ink)", letterSpacing: "-0.01em" }}>
                 {section.title}
               </h2>
-              <div className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "var(--c-text-muted)" }}>
+              <div className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "var(--w-ink-soft)" }}>
                 {section.body}
               </div>
             </div>
@@ -140,12 +140,12 @@ export default function TermsPage() {
         </div>
 
         {/* Footer links */}
-        <div className="mt-16 pt-8 flex flex-wrap gap-4 text-sm" style={{ borderTop: "1px solid var(--c-border)" }}>
-          <Link href="/privacy" style={{ color: "var(--c-indigo)", textDecoration: "none", fontWeight: 600 }}>
+        <div className="mt-16 pt-8 flex flex-wrap gap-4 text-sm" style={{ borderTop: "1px solid var(--w-line)" }}>
+          <Link href="/privacy" style={{ color: "var(--w-amber-ink)", textDecoration: "none", fontWeight: 600 }}>
             Privacy Policy →
           </Link>
-          <a href="mailto:hello@scholr.app" style={{ color: "var(--c-text-muted)", textDecoration: "none" }}>
-            hello@scholr.app
+          <a href="mailto:abrahamayoola35@gmail.com" style={{ color: "var(--w-ink-soft)", textDecoration: "none" }}>
+            abrahamayoola35@gmail.com
           </a>
         </div>
       </div>

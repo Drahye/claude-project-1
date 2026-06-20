@@ -23,6 +23,8 @@ interface Props {
   userId: string
   userAvatarUrl: string | null
   userName: string
+  /** "school" → school cards only (School hub). "account" → personal profile only (Settings). */
+  variant?: "all" | "school" | "account"
 }
 
 const TIMEZONES = [
@@ -90,7 +92,7 @@ function useImageUpload(type: "logo" | "avatar") {
 }
 
 /* ── Main form ─────────────────────────────────────────────────────────────── */
-export default function SettingsForm({ school, userId: _userId, userAvatarUrl, userName }: Props) {
+export default function SettingsForm({ school, userId: _userId, userAvatarUrl, userName, variant = "all" }: Props) {
   const router = useRouter()
 
   const [form, setForm] = useState({
@@ -124,7 +126,11 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
       const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, name: form.name.trim() }),
+        body: JSON.stringify(
+          variant === "account"
+            ? { country: form.country, timezone: form.timezone, primary_color: form.primary_color }
+            : { ...form, name: form.name.trim() }
+        ),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error ?? "Failed to save")
@@ -145,6 +151,7 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
     <form onSubmit={handleSubmit} className="space-y-6">
 
       {/* ── School identity ─────────────────────────────── */}
+      {variant !== "account" && (
       <Card title="School identity" icon={School}>
         {/* Logo upload */}
         <div className="flex items-center gap-5 mb-5 pb-5" style={{ borderBottom: "1px solid var(--c-border)" }}>
@@ -215,8 +222,10 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
           </div>
         </div>
       </Card>
+      )}
 
-      {/* ── Your profile ────────────────────────────────── */}
+      {/* ── Your profile (hidden inside the School hub) ───── */}
+      {variant !== "school" && (
       <Card title="Your profile" icon={Camera}>
         <div className="flex items-center gap-5">
           <div className="relative shrink-0">
@@ -247,8 +256,10 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
           </div>
         </div>
       </Card>
+      )}
 
       {/* ── Regional ────────────────────────────────────── */}
+      {variant !== "school" && (
       <Card title="Regional settings" icon={Globe}>
         <div className="grid sm:grid-cols-2 gap-5">
           <div>
@@ -267,9 +278,11 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
           </div>
         </div>
       </Card>
+      )}
 
       {/* ── Branding ────────────────────────────────────── */}
-      <Card title="Branding" icon={Palette}>
+      {variant !== "school" && (
+      <Card title="Dashboard theme" icon={Palette}>
         {/* Live preview */}
         <div className="rounded-xl p-4 flex items-center justify-between mb-5"
           style={{
@@ -334,8 +347,10 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
           </div>
         </div>
       </Card>
+      )}
 
       {/* ── School features ──────────────────────────────── */}
+      {variant !== "school" && (
       <Card title="School features" icon={Zap}>
         <p className="text-xs mb-4" style={{ color: "var(--c-text-muted)" }}>
           Choose which modules are active for your school. Disabled modules are hidden from teachers and parents.
@@ -383,8 +398,10 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
           })}
         </div>
       </Card>
+      )}
 
       {/* ── Save ────────────────────────────────────────── */}
+      {variant !== "school" && (
       <div className="flex items-center gap-4">
         <button type="submit" disabled={saving}
           className="btn-primary h-11 px-6 gap-2 disabled:opacity-50 flex items-center">
@@ -399,6 +416,7 @@ export default function SettingsForm({ school, userId: _userId, userAvatarUrl, u
         )}
         {error && <p className="text-sm" style={{ color: "var(--c-red)" }}>{error}</p>}
       </div>
+      )}
 
       <style>{`
         @keyframes fadeSlideIn {

@@ -81,7 +81,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--c-surface)" }}>
+    <div className="min-h-screen flex" style={{ background: "var(--c-canvas)" }}>
       {/* Inject school brand colour overrides */}
       {css && <style dangerouslySetInnerHTML={{ __html: css }} />}
 

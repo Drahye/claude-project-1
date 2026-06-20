@@ -40,18 +40,51 @@ export default async function AdminDashboard() {
 
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0]
+  const sevenDaysAgoISO = sevenDaysAgo.toISOString()
 
   const { data: attendanceRaw } = await supabase
     .from("attendance")
-    .select("status")
+    .select("date, status")
     .eq("school_id", schoolId)
-    .gte("date", sevenDaysAgo.toISOString().split("T")[0]) as unknown as {
-      data: Array<{ status: string }> | null
+    .gte("date", sevenDaysAgoStr) as unknown as {
+      data: Array<{ date: string; status: string }> | null
     }
 
-  const totalRecords  = (attendanceRaw ?? []).length
-  const presentCount  = (attendanceRaw ?? []).filter(a => a.status === "present" || a.status === "late").length
+  const attRows = attendanceRaw ?? []
+  const isPresent = (s: string) => s === "present" || s === "late"
+  const totalRecords  = attRows.length
+  const presentCount  = attRows.filter(a => isPresent(a.status)).length
   const attendancePct = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : null
+
+  // Daily attendance series for the last 7 days (oldest → newest) for the trend chart
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const attendanceSeries = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    const key = d.toISOString().split("T")[0]
+    const dayRows = attRows.filter(a => a.date === key)
+    const total = dayRows.length
+    const present = dayRows.filter(a => isPresent(a.status)).length
+    return { label: DOW[d.getDay()], pct: total > 0 ? Math.round((present / total) * 100) : null, present, total }
+  })
+
+  // New members this week (real trend context for the KPI cards)
+  const [
+    { count: studentsNew },
+    { count: teachersNew },
+    { count: parentsNew },
+    { count: classesNew },
+  ] = await Promise.all([
+    supabase.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId).gte("created_at", sevenDaysAgoISO),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("role", "teacher").gte("created_at", sevenDaysAgoISO),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("role", "parent").gte("created_at", sevenDaysAgoISO),
+    supabase.from("classes").select("id", { count: "exact", head: true }).eq("school_id", schoolId).gte("created_at", sevenDaysAgoISO),
+  ])
+  const deltas = {
+    students: studentsNew ?? 0, teachers: teachersNew ?? 0,
+    parents: parentsNew ?? 0, classes: classesNew ?? 0,
+  }
 
   const { count: hwAssigned } = await supabase
     .from("homework")
@@ -127,6 +160,8 @@ export default async function AdminDashboard() {
       hwAssigned={hwAssigned ?? 0}
       healthScore={healthScore}
       healthColor={healthColor}
+      attendanceSeries={attendanceSeries}
+      deltas={deltas}
       recentProfiles={(recentProfiles ?? []) as any}
       notifications={notifications}
       unreadCount={unreadCount}

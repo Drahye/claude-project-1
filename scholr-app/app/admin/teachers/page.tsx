@@ -10,6 +10,7 @@ interface TeacherRow {
   id: string
   full_name: string
   email: string
+  phone: string | null
   is_active: boolean
   created_at: string
   classes: Array<{ name: string; grade_level: string }>
@@ -33,9 +34,10 @@ export default async function TeachersPage() {
   // Teachers = profiles with role=teacher (the single source of truth)
   const { data: teacherProfiles } = await supabase
     .from("profiles")
-    .select("id, full_name, email, is_active, created_at")
+    .select("id, full_name, email, phone, is_active, created_at")
     .eq("school_id", profile.school_id)
     .eq("role", "teacher")
+    .eq("is_active", true)   // removed teachers are deactivated → hidden from the roster
     .order("full_name") as unknown as {
       data: Array<Omit<TeacherRow, "classes">> | null
     }

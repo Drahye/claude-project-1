@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
+import { limitOr429 } from "@/lib/rate-limit"
 import { createClient } from "@supabase/supabase-js"
 
 export async function GET(request: Request) {
+  const limited = limitOr429(request, "verify-school", 30, 60_000); if (limited) return limited
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get("slug")?.toLowerCase().trim()
 

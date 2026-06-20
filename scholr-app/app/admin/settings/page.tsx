@@ -35,10 +35,11 @@ export default async function SettingsPage() {
     <div className="p-6 pb-24 md:pb-6 max-w-3xl mx-auto">
       <div className="mb-8 pt-2">
         <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}>
-          School settings
+          Settings
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--c-text-muted)" }}>
-          Manage your school profile, branding, and active features
+          Your profile, region, dashboard theme, and active features. Your public page lives in{" "}
+          <a href="/admin/school" style={{ color: "var(--c-indigo)", fontWeight: 600, textDecoration: "none" }}>Customization</a>.
         </p>
       </div>
       <SettingsForm
@@ -46,6 +47,7 @@ export default async function SettingsPage() {
         userId={user.id}
         userAvatarUrl={(profile as any).avatar_url ?? null}
         userName={profile.full_name}
+        variant="account"
       />
     </div>
   )

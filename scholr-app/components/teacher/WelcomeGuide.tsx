@@ -80,8 +80,8 @@ export default function TeacherWelcomeGuide({ userName, userId, hasClasses, hasT
 
   return (
     <div
-      className="rounded-2xl p-5 mb-6 relative overflow-hidden"
-      style={{ background: "var(--c-surface)", border: "1px solid var(--c-border)" }}
+      className="card-float p-5 relative overflow-hidden"
+      style={{ background: "var(--c-bg)", border: "1px solid var(--c-hairline)", boxShadow: "var(--shadow-card)" }}
     >
       <button
         onClick={dismiss}
@@ -126,7 +126,7 @@ export default function TeacherWelcomeGuide({ userName, userId, hasClasses, hasT
               href={step.href}
               className="flex items-center gap-3 p-3 rounded-xl transition-all duration-150 hover:scale-[1.01]"
               style={{
-                background: "var(--c-bg)",
+                background: "var(--c-surface)",
                 opacity: done ? 0.5 : 1,
                 border: "1px solid var(--c-border)",
               }}

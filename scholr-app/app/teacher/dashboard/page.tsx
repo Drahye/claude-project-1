@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import type { Attendance, Homework, Notification, WeeklyReport } from "@/types/database"
 import TeacherWelcomeGuide from "@/components/teacher/WelcomeGuide"
+import { Spotlight, StatTile, Donut, Reveal, AlertsPill } from "@/components/shared/DashboardKit"
 
 export const metadata: Metadata = { title: "Teacher Dashboard" }
 
@@ -130,84 +131,77 @@ export default async function TeacherDashboard() {
   const totalStudents = Object.values(studentCounts).reduce((a, b) => a + b, 0)
   const presentToday = todayAttendance.filter(a => a.status === "present").length
   const absentToday  = todayAttendance.filter(a => a.status === "absent").length
+  const lateToday    = todayAttendance.filter(a => a.status === "late").length
+  const excusedToday = todayAttendance.filter(a => a.status === "excused").length
   const attendancePct = todayAttendance.length > 0
     ? Math.round((presentToday / todayAttendance.length) * 100)
     : null
   const attendanceTaken = todayAttendance.length > 0
   const hasAssignedHomework = upcomingHomework.length > 0
   const unreadCount = notifications.filter(n => !n.is_read).length
+  const firstName = (teacherProfile?.full_name ?? "there").split(" ")[0]
+
+  const todayDonut = [
+    { label: "Present", value: presentToday, color: "var(--c-emerald)" },
+    { label: "Late",    value: lateToday,    color: "var(--c-gold)" },
+    { label: "Absent",  value: absentToday,  color: "var(--c-red)" },
+    { label: "Excused", value: excusedToday, color: "var(--c-info)" },
+  ].filter(s => s.value > 0)
 
   return (
-    <div className="p-6 pb-24 md:pb-6 max-w-5xl mx-auto">
+    <div className="p-5 sm:p-7 pb-24 md:pb-8 max-w-[1180px] mx-auto">
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8 pt-2">
+      <div className="flex items-start justify-between gap-4 mb-7 pt-1">
         <div>
-          <p className="text-sm font-medium mb-1" style={{ color: "var(--c-text-muted)" }}>{dateLabel}</p>
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}>
-            {greeting} 👋
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: "var(--c-text-muted)" }}>{dateLabel}</p>
+          <h1 className="text-[1.75rem] font-extrabold tracking-tight leading-none" style={{ color: "var(--c-text)", letterSpacing: "-0.03em" }}>
+            {greeting}, {firstName}
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--c-text-muted)" }}>
+          <p className="text-sm mt-2" style={{ color: "var(--c-text-mid)" }}>
             You have {classIds.length} class{classIds.length !== 1 ? "es" : ""} · {totalStudents} students
           </p>
         </div>
-        {unreadCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "var(--c-indigo-bg)" }}>
-            <div className="w-2 h-2 rounded-full" style={{ background: "var(--c-indigo)" }} />
-            <span className="text-sm font-semibold" style={{ color: "var(--c-indigo)" }}>{unreadCount} new alert{unreadCount > 1 ? "s" : ""}</span>
-          </div>
-        )}
+        <AlertsPill count={unreadCount} href="/teacher/alerts" />
       </div>
 
       {/* First-run guide */}
-      <TeacherWelcomeGuide
-        userName={teacherProfile?.full_name ?? "Teacher"}
-        userId={user.id}
-        hasClasses={classIds.length > 0}
-        hasTakenAttendance={attendanceTaken}
-        hasAssignedHomework={hasAssignedHomework}
-      />
+      <Reveal delay={60} className="mb-6">
+        <TeacherWelcomeGuide
+          userName={teacherProfile?.full_name ?? "Teacher"}
+          userId={user.id}
+          hasClasses={classIds.length > 0}
+          hasTakenAttendance={attendanceTaken}
+          hasAssignedHomework={hasAssignedHomework}
+        />
+      </Reveal>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Classes",        value: classIds.length,                  icon: BookOpen,       color: "var(--c-indigo)" },
-          { label: "Students",       value: totalStudents,                     icon: Users,          color: "var(--c-indigo)" },
-          { label: "Present today",  value: attendancePct !== null ? `${attendancePct}%` : "—", icon: ClipboardCheck, color: attendancePct !== null && attendancePct >= 80 ? "var(--c-emerald)" : "var(--c-red)" },
-          { label: "Absent today",   value: absentToday,                       icon: XCircle,        color: absentToday > 0 ? "var(--c-red)" : "var(--c-text-muted)" },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="card p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Icon size={14} style={{ color }} />
-              <p className="text-xs font-medium" style={{ color: "var(--c-text-muted)" }}>{label}</p>
-            </div>
-            <p className="text-2xl font-extrabold tracking-tight" style={{ color, letterSpacing: "-0.02em" }}>{value}</p>
-          </div>
-        ))}
+      {/* Spotlight + stats */}
+      <div className="grid lg:grid-cols-[1.05fr_1.25fr] gap-5 mb-5">
+        <Reveal delay={90}>
+          <Spotlight
+            eyebrow="Today's attendance"
+            ring={attendanceTaken ? attendancePct : null}
+            value={attendanceTaken ? undefined : "—"}
+            headline={attendanceTaken
+              ? `${presentToday} present · ${absentToday} absent`
+              : classIds.length > 0 ? "Not marked yet today" : "No classes assigned yet"}
+            chips={attendanceTaken ? [`${todayAttendance.length} students marked`] : undefined}
+            ctaHref="/teacher/attendance"
+            ctaLabel={attendanceTaken ? "Review attendance" : "Take attendance"}
+          />
+        </Reveal>
+        <div className="grid grid-cols-2 gap-4">
+          <StatTile label="Classes"  value={classIds.length} icon={<BookOpen size={15} />} color="var(--c-indigo)" delay={0} />
+          <StatTile label="Students" value={totalStudents}   icon={<Users size={15} />}    color="var(--c-info)"   delay={60} />
+          <StatTile label="Present today" value={attendancePct !== null ? `${attendancePct}%` : "—"} icon={<ClipboardCheck size={15} />} color="var(--c-emerald)" delay={120} />
+          <StatTile label="Absent today"  value={absentToday} icon={<XCircle size={15} />} color={absentToday > 0 ? "var(--c-red)" : "var(--c-text-muted)"} delay={180} />
+        </div>
       </div>
 
-      {/* Attendance call-to-action */}
-      {!attendanceTaken && classIds.length > 0 && (
-        <div
-          className="card p-5 flex items-center gap-4 mb-6"
-          style={{ borderLeft: "3px solid var(--c-gold)", background: "var(--c-gold-bg)" }}
-        >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "var(--c-gold-bg)" }}>
-            <ClipboardCheck size={18} style={{ color: "var(--c-gold)" }} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold" style={{ color: "var(--c-text)" }}>Attendance not taken yet today</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--c-text-muted)" }}>Mark attendance for your classes to keep records up to date</p>
-          </div>
-          <Link href="/teacher/attendance" className="btn-primary text-sm px-4 h-9 shrink-0">
-            Take attendance
-          </Link>
-        </div>
-      )}
-
-      <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+      <div className="grid lg:grid-cols-[1fr_330px] gap-5">
         {/* Left column */}
-        <div className="space-y-6">
+        <div className="space-y-5">
 
           {/* Classes */}
           {(classes ?? []).length > 0 && (
@@ -219,17 +213,17 @@ export default async function TeacherDashboard() {
                   const clsAttendance = todayAttendance.length
                   const pct = clsAttendance > 0 ? Math.round((presentToday / clsAttendance) * 100) : null
                   return (
-                    <div key={cls.id} className="card p-4 flex items-center gap-4">
+                    <div key={cls.id} className="card-float p-4 flex items-center gap-4">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0"
                         style={{ background: avatarColor(cls.name) }}
                       >
                         {getInitials(cls.name)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm" style={{ color: "var(--c-text)" }}>{cls.name}</p>
+                      <Link href={`/teacher/classes/${cls.id}`} className="flex-1 min-w-0" style={{ textDecoration: "none" }}>
+                        <p className="font-semibold text-sm hover:underline" style={{ color: "var(--c-text)" }}>{cls.name}</p>
                         <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>{cls.grade_level} · {count} students</p>
-                      </div>
+                      </Link>
                       {pct !== null && (
                         <span className={`badge ${pct >= 80 ? "badge-green" : "badge-red"}`}>
                           {pct}% today
@@ -258,7 +252,7 @@ export default async function TeacherDashboard() {
               </Link>
             </div>
             {upcomingHomework.length > 0 ? (
-              <div className="card divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
+              <div className="card-float divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
                 {upcomingHomework.map(hw => {
                   const dueDate  = new Date(hw.due_date)
                   const todayD   = new Date()
@@ -288,7 +282,7 @@ export default async function TeacherDashboard() {
                 })}
               </div>
             ) : (
-              <div className="card px-5 py-8 text-center">
+              <div className="card-float px-5 py-8 text-center">
                 <CheckCircle2 size={24} className="mx-auto mb-2" style={{ color: "var(--c-emerald)" }} />
                 <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>No homework due this week</p>
                 <p className="text-xs mt-1" style={{ color: "var(--c-text-muted)" }}>Assign homework to your classes.</p>
@@ -298,12 +292,22 @@ export default async function TeacherDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="space-y-5">
+
+          {/* Today's breakdown donut */}
+          {attendanceTaken && todayDonut.length > 0 && (
+            <Reveal>
+              <div className="card-float p-5">
+                <h2 className="text-sm font-bold mb-4" style={{ color: "var(--c-text)" }}>Today at a glance</h2>
+                <Donut segments={todayDonut} centerLabel="marked" />
+              </div>
+            </Reveal>
+          )}
 
           {/* AI Reports shortcut */}
           <div
-            className="card p-5"
-            style={{ borderLeft: "3px solid var(--c-indigo)", background: "linear-gradient(135deg, var(--c-indigo-bg), var(--c-bg))" }}
+            className="card-float card-float-hover p-5"
+            style={{ background: "linear-gradient(135deg, var(--c-indigo-bg), var(--c-bg))" }}
           >
             <div className="flex items-center gap-2 mb-3">
               <Sparkles size={14} style={{ color: "var(--c-indigo)" }} />
@@ -324,7 +328,7 @@ export default async function TeacherDashboard() {
               <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-muted)" }}>Recent reports</h2>
               <div className="space-y-2">
                 {recentReports.map(r => (
-                  <div key={r.id} className="card px-4 py-3 flex items-center gap-3">
+                  <div key={r.id} className="card-float p-3.5 flex items-center gap-3">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                       style={{ background: "var(--c-indigo-bg)" }}
@@ -356,7 +360,7 @@ export default async function TeacherDashboard() {
                 {notifications.map(n => (
                   <div
                     key={n.id}
-                    className="card px-4 py-3"
+                    className="card-float px-4 py-3"
                     style={{ opacity: n.is_read ? 0.65 : 1 }}
                   >
                     <p className="text-sm font-semibold" style={{ color: "var(--c-text)" }}>{n.title}</p>

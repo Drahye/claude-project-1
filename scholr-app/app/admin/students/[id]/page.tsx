@@ -2,14 +2,14 @@ import type { Metadata } from "next"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
-import { avatarColor, getInitials, formatDate } from "@/lib/utils"
-import {
-  ArrowLeft, CheckCircle2, XCircle, Clock,
-  Calendar, User, Hash, GraduationCap,
-} from "lucide-react"
+import { formatDate } from "@/lib/utils"
+import { ArrowLeft, CheckCircle2, XCircle, Clock, Calendar } from "lucide-react"
 import type { Profile } from "@/types/database"
 import EmptyState from "@/components/shared/EmptyState"
 import StudentManage from "./StudentManage"
+import StudentEditor from "./StudentEditor"
+import StudentHero from "./StudentHero"
+import { signStudentPhoto } from "@/lib/student-photo"
 
 export const metadata: Metadata = { title: "Student" }
 
@@ -30,12 +30,15 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   // Student (scoped to the admin's school)
   const { data: student } = await supabase
     .from("students")
-    .select("id, full_name, admission_number, date_of_birth, gender, photo_url, is_active, created_at, school_id")
+    .select("id, full_name, admission_number, date_of_birth, gender, photo_url, is_active, medical, created_at, school_id")
     .eq("id", id)
     .eq("school_id", profile.school_id)
     .maybeSingle() as unknown as { data: any | null }
 
   if (!student) notFound()
+
+  // Student photos live in a PRIVATE bucket — mint a short-lived signed URL.
+  const photoDisplay = await signStudentPhoto(student.photo_url)
 
   // Class enrolment
   const { data: enr } = await supabase
@@ -105,10 +108,6 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   const absent  = att.filter(a => a.status === "absent").length
   const attPct  = att.length > 0 ? Math.round(((present + late) / att.length) * 100) : null
 
-  const genderLabel = student.gender
-    ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1)
-    : "—"
-
   const statusMeta: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
     present: { label: "Present", color: "var(--c-emerald)", bg: "var(--c-emerald-bg)", icon: CheckCircle2 },
     late:    { label: "Late",    color: "var(--c-gold)",    bg: "var(--c-gold-bg)",    icon: Clock },
@@ -116,57 +115,38 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <div className="p-6 pb-24 md:pb-6 max-w-4xl mx-auto">
+    <div className="p-5 sm:p-7 pb-24 max-w-5xl mx-auto">
       <Link href="/admin/students"
         className="inline-flex items-center gap-1.5 text-sm font-medium mb-5 transition-opacity hover:opacity-70"
         style={{ color: "var(--c-text-muted)", textDecoration: "none" }}>
         <ArrowLeft size={15} /> All students
       </Link>
 
-      {/* Header */}
-      <div className="card p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shrink-0"
-            style={{ background: avatarColor(student.full_name) }}>
-            {getInitials(student.full_name)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}>
-                {student.full_name}
-              </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                style={{
-                  background: student.is_active ? "var(--c-emerald-bg)" : "var(--c-red-bg)",
-                  color:      student.is_active ? "var(--c-emerald)" : "var(--c-red)",
-                }}>
-                {student.is_active ? "Active" : "Inactive"}
-              </span>
-            </div>
-            <p className="text-sm" style={{ color: "var(--c-text-muted)" }}>
-              {cls ? `${cls.name} · ${cls.grade_level}` : "Not enrolled in a class"}
-            </p>
-          </div>
-        </div>
+      {/* Premium hero — identity, photo, inline edit + overflow menu (edit / remove) */}
+      <StudentHero
+        student={{
+          id: student.id,
+          full_name: student.full_name,
+          admission_number: student.admission_number,
+          date_of_birth: student.date_of_birth ?? null,
+          gender: student.gender ?? "male",
+          photo_url: photoDisplay,
+          is_active: student.is_active,
+        }}
+        className={cls?.name ?? null}
+        grade={cls?.grade_level ?? null}
+        teacherName={teacherName}
+      />
 
-        {/* Detail grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6" style={{ borderTop: "1px solid var(--c-border)" }}>
-          <Detail icon={Hash}     label="Admission #" value={student.admission_number} />
-          <Detail icon={Calendar} label="Date of birth" value={student.date_of_birth ? formatDate(student.date_of_birth) : "—"} />
-          <Detail icon={User}     label="Gender" value={genderLabel} />
-          <Detail icon={GraduationCap} label="Teacher" value={teacherName ?? "—"} />
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-[1fr_320px] gap-6">
-        {/* Attendance */}
+      <div className="grid lg:grid-cols-[1.5fr_1fr] gap-5 items-start">
+        {/* Left — attendance */}
         <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--c-text-muted)" }}>
+          <h2 className="text-xs font-bold uppercase tracking-widest mb-3 px-1" style={{ color: "var(--c-text-muted)" }}>
             Attendance — last 30 days
           </h2>
 
           {/* Summary strip */}
-          <div className="card p-4 grid grid-cols-4 gap-3 mb-4">
+          <div className="card-float p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <Stat label="Rate"    value={attPct !== null ? `${attPct}%` : "—"}
               color={attPct !== null && attPct >= 80 ? "var(--c-emerald)" : attPct !== null ? "var(--c-red)" : "var(--c-text-muted)"} />
             <Stat label="Present" value={String(present)} color="var(--c-emerald)" />
@@ -178,7 +158,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
             <EmptyState icon={Calendar} title="No attendance records yet" compact
               description="Attendance will appear here once the teacher starts marking it." />
           ) : (
-            <div className="card divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
+            <div className="card-float divide-y" style={{ "--tw-divide-opacity": 1 } as React.CSSProperties}>
               {att.slice(0, 14).map((a, i) => {
                 const meta = statusMeta[a.status] ?? statusMeta.present
                 const Icon = meta.icon
@@ -198,27 +178,18 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           )}
         </section>
 
-        {/* Class + parents management (interactive) */}
-        <StudentManage
-          studentId={student.id}
-          currentClassId={cls?.id ?? null}
-          classes={allClasses ?? []}
-          linkedParents={parents}
-          availableParents={availableParents ?? []}
-        />
+        {/* Right — medical + class & parents */}
+        <div className="space-y-5">
+          <StudentEditor studentId={student.id} medical={student.medical ?? null} />
+          <StudentManage
+            studentId={student.id}
+            currentClassId={cls?.id ?? null}
+            classes={allClasses ?? []}
+            linkedParents={parents}
+            availableParents={availableParents ?? []}
+          />
+        </div>
       </div>
-    </div>
-  )
-}
-
-function Detail({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon size={12} style={{ color: "var(--c-text-muted)" }} />
-        <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>{label}</p>
-      </div>
-      <p className="text-sm font-semibold truncate" style={{ color: "var(--c-text)" }}>{value}</p>
     </div>
   )
 }
