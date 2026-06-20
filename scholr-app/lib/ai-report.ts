@@ -86,6 +86,8 @@ export async function gatherStats(
 
 /** Call Groq to write summary + encouragement. Throws on failure. */
 export async function generateReport(
+  // Accepts either client flavour (service-role for cron, SSR for on-demand).
+  // supabase-js types the two differently, so callers pass `as any` here.
   supabase: SupabaseClient,
   opts: { studentId: string; studentName: string; weekStart: string; teacherNotes?: string },
 ): Promise<ReportResult> {

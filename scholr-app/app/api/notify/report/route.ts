@@ -25,23 +25,23 @@ export async function POST(req: NextRequest) {
   const schoolId = caller.school_id
   const weekLabel = weekStart ? `week of ${formatDate(weekStart)}` : "this week"
 
-  const { data: student } = await (s as any)
+  const { data: student } = await s
     .from("students").select("full_name").eq("id", studentId).eq("school_id", schoolId).maybeSingle()
   if (!student) return NextResponse.json({ ok: true, notified: 0 })
 
-  const { data: links } = await (s as any)
+  const { data: links } = await s
     .from("parent_students").select("parent_id").eq("student_id", studentId)
-  const parentIds = [...new Set((links ?? []).map((l: any) => l.parent_id))] as string[]
+  const parentIds = [...new Set((links ?? []).map(l => l.parent_id))]
   if (parentIds.length === 0) return NextResponse.json({ ok: true, notified: 0 })
 
-  const { data: parents } = await (s as any)
+  const { data: parents } = await s
     .from("profiles").select("id, full_name, email").in("id", parentIds)
 
   const emailOn = isEmailConfigured()
   let notified = 0
 
   for (const parent of parents ?? []) {
-    await (s as any).from("notifications").insert({
+    await s.from("notifications").insert({
       school_id:    schoolId,
       recipient_id: parent.id,
       type:         "report",

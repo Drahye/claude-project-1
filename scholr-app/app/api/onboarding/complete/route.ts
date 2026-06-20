@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (attempt > 20) return NextResponse.json({ error: "Could not generate a unique school slug." }, { status: 500 })
   }
 
-  const { data: school, error: schoolErr } = await (supabase as any)
+  const { data: school, error: schoolErr } = await supabase
     .from("schools")
     .insert({ name: schoolName.trim(), slug, country: schoolCountry ?? "US" })
     .select("id, name, slug")
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: schoolErr?.message ?? "Failed to create school." }, { status: 500 })
   }
 
-  const { error: profileErr } = await (supabase as any)
+  const { error: profileErr } = await supabase
     .from("profiles")
     .insert({
       id:        user.id,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   if (profileErr) {
     // Roll back the school we just created so a retry can start clean.
-    await (supabase as any).from("schools").delete().eq("id", school.id)
+    await supabase.from("schools").delete().eq("id", school.id)
     if (profileErr.code === "23505") {
       return NextResponse.json({ error: "Profile already exists." }, { status: 409 })
     }

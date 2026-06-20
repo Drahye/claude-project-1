@@ -49,16 +49,16 @@ export async function POST(req: Request) {
         )
       }
       // Previously removed (deactivated) → reactivate and return them to the roster.
-      const { data: revived } = await (service.from("profiles") as any)
+      const { data: revived } = await service.from("profiles")
         .update({ is_active: true, full_name: full_name.trim() })
         .eq("id", existing.id).select().single()
-      await (service.from("teachers") as any).upsert({ id: existing.id, school_id }, { onConflict: "id" })
+      await service.from("teachers").upsert({ id: existing.id, school_id }, { onConflict: "id" })
       return NextResponse.json({ teacher: { ...revived, classes: [] }, email_sent: false, reactivated: true }, { status: 200 })
     }
 
     // `service` is a plain service-role client, so auth.admin methods are available.
     // Branded school slug → the invite lands on /{slug}/join (set password)
-    const { data: schoolRow } = await (service.from("schools") as any)
+    const { data: schoolRow } = await service.from("schools")
       .select("slug, name, public_color, primary_color, logo_url").eq("id", school_id).single()
     const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
     const joinPath = schoolRow?.slug ? `/${schoolRow.slug}/join` : "/onboarding"
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
       authUserId = linkData?.user?.id ?? crypto.randomUUID()
     }
 
-    const { data: profile, error: profileError } = await (service.from("profiles") as any)
+    const { data: profile, error: profileError } = await service.from("profiles")
       .upsert(
         {
           id:        authUserId,
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
 
     // Create the teachers extension row so class assignment, attendance,
     // and homework foreign keys resolve. Idempotent — safe to re-run.
-    const { error: teacherErr } = await (service.from("teachers") as any)
+    const { error: teacherErr } = await service.from("teachers")
       .upsert({ id: authUserId, school_id }, { onConflict: "id" })
 
     if (teacherErr) {

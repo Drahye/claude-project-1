@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const s = await createServiceClient()
 
   // Thread + participants (verify caller is a participant)
-  const { data: thread } = await (s as any)
+  const { data: thread } = await s
     .from("message_threads").select("id, participant_ids, school_id").eq("id", threadId).maybeSingle()
   if (!thread || !thread.participant_ids?.includes(user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -34,15 +34,15 @@ export async function POST(req: NextRequest) {
   if (recipientIds.length === 0) return NextResponse.json({ ok: true, notified: 0 })
 
   // Sender name + latest message preview
-  const { data: sender } = await (s as any).from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+  const { data: sender } = await s.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
   const senderName = sender?.full_name ?? "Someone"
 
-  const { data: latest } = await (s as any)
+  const { data: latest } = await s
     .from("messages").select("body").eq("thread_id", threadId).order("sent_at", { ascending: false }).limit(1)
   const preview = latest?.[0]?.body ?? "You have a new message."
 
   // Recipients
-  const { data: recips } = await (s as any)
+  const { data: recips } = await s
     .from("profiles").select("id, full_name, email, role").in("id", recipientIds)
 
   let notified = 0

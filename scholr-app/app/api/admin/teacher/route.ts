@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/lib/api-auth"
+import type { Profile, Teacher } from "@/types/database"
 
 /* Edit a teacher's profile + teaching details. */
 export async function PATCH(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function PATCH(req: NextRequest) {
   const s = await createServiceClient()
 
   // Profile fields (scoped to this school's teachers only)
-  const profileUpdate: Record<string, unknown> = {}
+  const profileUpdate: Partial<Profile> = {}
   if (body.full_name !== undefined) {
     const n = String(body.full_name).trim()
     if (!n) return NextResponse.json({ error: "Name is required" }, { status: 400 })
@@ -23,7 +24,7 @@ export async function PATCH(req: NextRequest) {
   if (body.phone !== undefined) profileUpdate.phone = String(body.phone).trim() || null
 
   if (Object.keys(profileUpdate).length > 0) {
-    const { error, count } = await (s as any)
+    const { error, count } = await s
       .from("profiles").update(profileUpdate, { count: "exact" })
       .eq("id", teacherId).eq("school_id", auth.schoolId).eq("role", "teacher")
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -31,7 +32,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Teaching details
-  const teacherUpdate: Record<string, unknown> = {}
+  const teacherUpdate: Partial<Teacher> = {}
   if (body.subjects !== undefined) {
     const subs = Array.isArray(body.subjects)
       ? body.subjects
@@ -41,7 +42,7 @@ export async function PATCH(req: NextRequest) {
   if (body.employee_number !== undefined) teacherUpdate.employee_number = String(body.employee_number).trim() || null
 
   if (Object.keys(teacherUpdate).length > 0) {
-    const { error } = await (s as any)
+    const { error } = await s
       .from("teachers").update(teacherUpdate).eq("id", teacherId).eq("school_id", auth.schoolId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -59,9 +60,9 @@ export async function DELETE(req: NextRequest) {
 
   const s = await createServiceClient()
   // Unassign from classes so nothing is left pointing at an inactive teacher.
-  await (s as any).from("classes").update({ teacher_id: null })
+  await s.from("classes").update({ teacher_id: null })
     .eq("teacher_id", body.teacherId).eq("school_id", auth.schoolId)
-  const { error, count } = await (s as any)
+  const { error, count } = await s
     .from("profiles").update({ is_active: false }, { count: "exact" })
     .eq("id", body.teacherId).eq("school_id", auth.schoolId).eq("role", "teacher")
 

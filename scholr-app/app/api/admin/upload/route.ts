@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Admins may set any student's photo; a parent may set only their own child's.
     if (!isAdmin) {
       const svcCheck = await createServiceClient()
-      const { data: link } = await (svcCheck as any)
+      const { data: link } = await svcCheck
         .from("parent_students").select("student_id")
         .eq("parent_id", user.id).eq("student_id", studentId).maybeSingle()
       if (!link) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -94,12 +94,12 @@ export async function POST(req: NextRequest) {
 
   // 6 — persist URL to DB
   if (type === "logo") {
-    await (svc as any).from("schools").update({ logo_url: publicUrl }).eq("id", profile.school_id)
+    await svc.from("schools").update({ logo_url: publicUrl }).eq("id", profile.school_id)
   } else if (type === "avatar") {
-    await (svc as any).from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id)
+    await svc.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id)
   } else if (type === "gallery") {
     // Insert into gallery_images so it persists across devices
-    await (svc as any).from("gallery_images").insert({
+    await svc.from("gallery_images").insert({
       school_id:    profile.school_id,
       storage_path: path,
       url:          publicUrl,

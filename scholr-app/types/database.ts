@@ -91,7 +91,7 @@ export interface Student {
   school_id: string
   admission_number: string
   full_name: string
-  date_of_birth: string
+  date_of_birth: string | null
   gender: "male" | "female" | "other"
   photo_url: string | null
   is_active: boolean
@@ -173,6 +173,7 @@ export interface Homework {
 export interface HomeworkSubmission {
   id: string
   homework_id: string
+  school_id: string                // added in migration 002 (admin dashboard queries it)
   student_id: string
   submitted_at: string | null
   file_urls: string[]
@@ -189,7 +190,7 @@ export interface MessageThread {
   school_id: string
   subject: string | null
   type: MessageType
-  participants: string[]           // profile ids
+  participant_ids: string[]        // profile ids (renamed from `participants` in migration 002)
   last_message_at: string | null
   created_at: string
 }
@@ -254,27 +255,72 @@ export interface Subscription {
   updated_at: string
 }
 
+// ─── Public-page extras ───────────────────────────────────────────────────────
+
+export interface GalleryImage {
+  id: string
+  school_id: string
+  storage_path: string             // e.g. gallery/school-id/1234567890.jpg
+  url: string                      // public CDN URL
+  name: string                     // original filename
+  uploaded_by: string | null
+  uploaded_at: string
+}
+
+export interface SchoolPageEvent {
+  id: string
+  school_id: string
+  event: string                    // 'view' | 'login_click'
+  created_at: string
+}
+
 // ─── Supabase DB helper type ──────────────────────────────────────────────────
+
+// An insertable row: every column is optional (the DB fills id, timestamps, and
+// any column with a default), except `Req` — the columns a caller must provide.
+// This mirrors what `supabase gen types` produces and lets typed .insert() calls
+// drop the `as any` casts that were previously needed.
+type Ins<T, Req extends keyof T = never> = Partial<T> & Pick<T, Req>
+
+// supabase-js's GenericTable requires Row/Insert/Update to extend
+// Record<string, unknown> AND a `Relationships` key. A TS `interface` is NOT
+// assignable to Record<string, unknown> (it can be augmented), so passing the
+// row interfaces straight through makes the whole schema collapse to `never` —
+// which is the real reason every query used to be cast to `any`. Running each
+// shape through this mapped type turns the interface into an anonymous object
+// type that satisfies the constraint, while keeping every property for checking.
+type Resolve<T> = { [K in keyof T]: T[K] }
+
+type Table<Row, Insert, Update> = {
+  Row: Resolve<Row>
+  Insert: Resolve<Insert>
+  Update: Resolve<Update>
+  Relationships: []
+}
 
 export interface Database {
   public: {
     Tables: {
-      schools: { Row: School; Insert: Omit<School, "id" | "created_at" | "updated_at">; Update: Partial<School> }
-      profiles: { Row: Profile; Insert: Omit<Profile, "created_at" | "updated_at">; Update: Partial<Profile> }
-      students: { Row: Student; Insert: Omit<Student, "id" | "created_at" | "updated_at">; Update: Partial<Student> }
-      parents: { Row: Parent; Insert: Parent; Update: Partial<Parent> }
-      parent_students: { Row: ParentStudent; Insert: ParentStudent; Update: Partial<ParentStudent> }
-      teachers: { Row: Teacher; Insert: Teacher; Update: Partial<Teacher> }
-      classes: { Row: Class; Insert: Omit<Class, "id" | "created_at">; Update: Partial<Class> }
-      student_class_enrollments: { Row: StudentClassEnrollment; Insert: StudentClassEnrollment; Update: Partial<StudentClassEnrollment> }
-      attendance: { Row: Attendance; Insert: Omit<Attendance, "id" | "created_at">; Update: Partial<Attendance> }
-      homework: { Row: Homework; Insert: Omit<Homework, "id" | "created_at" | "updated_at">; Update: Partial<Homework> }
-      homework_submissions: { Row: HomeworkSubmission; Insert: Omit<HomeworkSubmission, "id">; Update: Partial<HomeworkSubmission> }
-      message_threads: { Row: MessageThread; Insert: Omit<MessageThread, "id" | "created_at">; Update: Partial<MessageThread> }
-      messages: { Row: Message; Insert: Omit<Message, "id" | "sent_at">; Update: Partial<Message> }
-      notifications: { Row: Notification; Insert: Omit<Notification, "id" | "created_at">; Update: Partial<Notification> }
-      weekly_reports: { Row: WeeklyReport; Insert: Omit<WeeklyReport, "id" | "created_at">; Update: Partial<WeeklyReport> }
-      subscriptions: { Row: Subscription; Insert: Omit<Subscription, "id" | "created_at" | "updated_at">; Update: Partial<Subscription> }
+      schools:                   Table<School,                 Ins<School, "name" | "slug">,                                                                                       Partial<School>>
+      profiles:                  Table<Profile,                Ins<Profile, "id" | "school_id" | "role" | "full_name" | "email">,                                                  Partial<Profile>>
+      students:                  Table<Student,                Ins<Student, "school_id" | "admission_number" | "full_name">,                                                       Partial<Student>>
+      parents:                   Table<Parent,                 Ins<Parent, "id" | "school_id">,                                                                                    Partial<Parent>>
+      parent_students:           Table<ParentStudent,          Ins<ParentStudent, "parent_id" | "student_id">,                                                                     Partial<ParentStudent>>
+      teachers:                  Table<Teacher,                Ins<Teacher, "id" | "school_id">,                                                                                   Partial<Teacher>>
+      classes:                   Table<Class,                  Ins<Class, "school_id" | "name" | "grade_level" | "academic_year">,                                                 Partial<Class>>
+      student_class_enrollments: Table<StudentClassEnrollment, Ins<StudentClassEnrollment, "student_id" | "class_id">,                                                             Partial<StudentClassEnrollment>>
+      attendance:                Table<Attendance,             Ins<Attendance, "school_id" | "student_id" | "class_id" | "teacher_id" | "date" | "status">,                        Partial<Attendance>>
+      homework:                  Table<Homework,               Ins<Homework, "school_id" | "class_id" | "teacher_id" | "title" | "subject" | "due_date">,                          Partial<Homework>>
+      homework_submissions:      Table<HomeworkSubmission,     Ins<HomeworkSubmission, "school_id" | "homework_id" | "student_id">,                                                 Partial<HomeworkSubmission>>
+      message_threads:           Table<MessageThread,          Ins<MessageThread, "school_id" | "participant_ids">,                                                                Partial<MessageThread>>
+      messages:                  Table<Message,                Ins<Message, "thread_id" | "school_id" | "sender_id" | "body">,                                                     Partial<Message>>
+      notifications:             Table<Notification,           Ins<Notification, "school_id" | "recipient_id" | "type" | "title" | "body">,                                        Partial<Notification>>
+      weekly_reports:            Table<WeeklyReport,           Ins<WeeklyReport, "school_id" | "student_id" | "week_start" | "week_end">,                                           Partial<WeeklyReport>>
+      subscriptions:             Table<Subscription,           Ins<Subscription, "school_id" | "stripe_subscription_id" | "stripe_customer_id" | "plan" | "status" | "current_period_start" | "current_period_end">, Partial<Subscription>>
+      gallery_images:            Table<GalleryImage,           Ins<GalleryImage, "school_id" | "storage_path" | "url" | "name">,                                 Partial<GalleryImage>>
+      school_page_events:        Table<SchoolPageEvent,        Ins<SchoolPageEvent, "school_id" | "event">,                                                     Partial<SchoolPageEvent>>
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }

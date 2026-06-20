@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse }        from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { isPaidPlan }                       from "@/lib/plans"
+import type { School }                      from "@/types/database"
 
 export async function POST(req: NextRequest) {
   // 1 — verify caller is an authenticated admin
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   // Partial update — only change fields that were actually sent, so different
   // surfaces (Brand tab vs Public-page tab) never clobber each other's fields.
   const svc = await createServiceClient()
-  const updateData: Record<string, unknown> = {}
+  const updateData: Partial<School> = {}
   if (name !== undefined) {
     if (!name.trim()) return NextResponse.json({ error: "School name is required" }, { status: 400 })
     updateData.name = name.trim()
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const { error: updateErr, count } = await (svc as any)
+  const { error: updateErr, count } = await svc
     .from("schools")
     .update(updateData, { count: "exact" })
     .eq("id", profile.school_id)

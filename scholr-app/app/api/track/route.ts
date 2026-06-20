@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const s = await createServiceClient()
     const { data: school } = await s.from("schools").select("id").eq("slug", slug).maybeSingle()
     if (school) {
-      await (s as any).from("school_page_events").insert({ school_id: (school as any).id, event })
+      await s.from("school_page_events").insert({ school_id: school.id, event })
     }
   } catch {
     // swallow — analytics must never break the public page

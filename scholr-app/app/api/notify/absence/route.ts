@@ -28,24 +28,24 @@ export async function POST(req: NextRequest) {
   const dateLabel = date ? formatDate(date, "long") : formatDate(new Date(), "long")
 
   // School name
-  const { data: school } = await (s as any).from("schools").select("name").eq("id", schoolId).single()
+  const { data: school } = await s.from("schools").select("name").eq("id", schoolId).single()
   const schoolName = school?.name ?? "the school"
 
   // Students (scoped to school) → names
-  const { data: students } = await (s as any)
+  const { data: students } = await s
     .from("students").select("id, full_name").in("id", studentIds).eq("school_id", schoolId)
   const studentName = new Map<string, string>((students ?? []).map((x: any) => [x.id, x.full_name]))
   const validIds = (students ?? []).map((x: any) => x.id)
   if (validIds.length === 0) return NextResponse.json({ ok: true, notified: 0 })
 
   // Parent links for these students
-  const { data: links } = await (s as any)
+  const { data: links } = await s
     .from("parent_students").select("student_id, parent_id").in("student_id", validIds)
   const parentIds = [...new Set((links ?? []).map((l: any) => l.parent_id))] as string[]
   if (parentIds.length === 0) return NextResponse.json({ ok: true, notified: 0 })
 
   // Parent profiles
-  const { data: parents } = await (s as any)
+  const { data: parents } = await s
     .from("profiles").select("id, full_name, email").in("id", parentIds)
   const parentById = new Map<string, any>((parents ?? []).map((p: any) => [p.id, p]))
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (!parent || !sName) continue
 
     // In-app notification (powers the Alerts badge)
-    await (s as any).from("notifications").insert({
+    await s.from("notifications").insert({
       school_id:    schoolId,
       recipient_id: parent.id,
       type:         "absence",

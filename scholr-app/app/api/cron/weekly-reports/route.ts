@@ -45,15 +45,15 @@ async function run(req: NextRequest) {
   const weekEnd   = weekEndFrom(weekStart)
 
   // Active students that are enrolled in at least one class
-  const { data: enr } = await (s as any).from("student_class_enrollments").select("student_id")
+  const { data: enr } = await s.from("student_class_enrollments").select("student_id")
   const enrolledIds = [...new Set((enr ?? []).map((e: any) => e.student_id))] as string[]
   if (enrolledIds.length === 0) return NextResponse.json({ ok: true, generated: 0, skipped: 0, failed: 0 })
 
-  const { data: students } = await (s as any)
+  const { data: students } = await s
     .from("students").select("id, full_name, school_id").in("id", enrolledIds).eq("is_active", true)
 
   // Skip students who already have a report for this week (draft OR sent)
-  const { data: existing } = await (s as any)
+  const { data: existing } = await s
     .from("weekly_reports").select("student_id").eq("week_start", weekStart).in("student_id", enrolledIds)
   const have = new Set((existing ?? []).map((e: any) => e.student_id))
 
@@ -65,7 +65,7 @@ async function run(req: NextRequest) {
       const r = await generateReport(s as any, {
         studentId: st.id, studentName: st.full_name, weekStart,
       })
-      const { error } = await (s as any).from("weekly_reports").insert({
+      const { error } = await s.from("weekly_reports").insert({
         school_id:          st.school_id,
         student_id:         st.id,
         week_start:         weekStart,

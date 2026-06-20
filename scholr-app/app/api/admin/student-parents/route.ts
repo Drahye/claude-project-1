@@ -29,11 +29,11 @@ export async function POST(req: NextRequest) {
 
   // Ensure the parent extension row exists (parent_students.parent_id → parents.id).
   // Idempotent — covers parents who somehow lack the extension row.
-  await (svc as any)
+  await svc
     .from("parents")
     .upsert({ id: parentId, school_id: auth.schoolId }, { onConflict: "id" })
 
-  const { error } = await (svc as any)
+  const { error } = await svc
     .from("parent_students")
     .upsert(
       { parent_id: parentId, student_id: studentId, is_primary: isPrimary },
@@ -56,7 +56,7 @@ export async function DELETE(req: NextRequest) {
   const problem = await verify(svc, auth.schoolId, studentId, parentId)
   if (problem) return NextResponse.json({ error: problem }, { status: 404 })
 
-  const { error } = await (svc as any)
+  const { error } = await svc
     .from("parent_students")
     .delete()
     .eq("student_id", studentId)

@@ -8,14 +8,14 @@ const CATEGORIES = new Set(["sport", "swimming", "club", "creative", "music", "o
 
 /** Verify the signed-in teacher owns `classId` AND `studentId` is enrolled in it. */
 async function canManage(s: ServiceClient, teacherId: string, classId: string, studentId: string) {
-  const { data: cls } = await (s as any).from("classes").select("id").eq("id", classId).eq("teacher_id", teacherId).maybeSingle()
+  const { data: cls } = await s.from("classes").select("id").eq("id", classId).eq("teacher_id", teacherId).maybeSingle()
   if (!cls) return false
-  const { data: enr } = await (s as any).from("student_class_enrollments").select("student_id").eq("class_id", classId).eq("student_id", studentId).maybeSingle()
+  const { data: enr } = await s.from("student_class_enrollments").select("student_id").eq("class_id", classId).eq("student_id", studentId).maybeSingle()
   return !!enr
 }
 
 async function getActivities(s: ServiceClient, studentId: string): Promise<StudentActivity[]> {
-  const { data } = await (s as any).from("students").select("activities").eq("id", studentId).maybeSingle()
+  const { data } = await s.from("students").select("activities").eq("id", studentId).maybeSingle()
   return Array.isArray(data?.activities) ? data.activities : []
 }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const activities = await getActivities(s, studentId)
   if (activities.length >= 30) return NextResponse.json({ error: "Too many activities" }, { status: 400 })
   const next = [...activities, { id: crypto.randomUUID(), name, category, added_by_role: "teacher" }]
-  const { error } = await (s as any).from("students").update({ activities: next }).eq("id", studentId)
+  const { error } = await s.from("students").update({ activities: next }).eq("id", studentId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, activities: next })
 }
@@ -55,7 +55,7 @@ export async function DELETE(req: NextRequest) {
 
   const activities = await getActivities(s, studentId)
   const next = activities.filter(a => a.id !== activityId)
-  const { error } = await (s as any).from("students").update({ activities: next }).eq("id", studentId)
+  const { error } = await s.from("students").update({ activities: next }).eq("id", studentId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, activities: next })
 }

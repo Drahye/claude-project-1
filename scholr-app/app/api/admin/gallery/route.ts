@@ -8,7 +8,7 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth
 
   const svc = await createServiceClient()
-  const { data, error } = await (svc as any)
+  const { data, error } = await svc
     .from("gallery_images")
     .select("id, url, name, storage_path, uploaded_at")
     .eq("school_id", auth.schoolId)
@@ -30,7 +30,7 @@ export async function DELETE(req: NextRequest) {
   const svc = await createServiceClient()
 
   // Delete the DB row (also verifies ownership via school_id)
-  const { error: dbErr } = await (svc as any)
+  const { error: dbErr } = await svc
     .from("gallery_images")
     .delete()
     .eq("id", id)
