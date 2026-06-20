@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import type { StudentMedical, StudentPersonal } from "@/types/database"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 
 const MED_KEYS: (keyof StudentMedical)[] = [
   "blood_group", "allergies", "conditions", "medications",
@@ -34,7 +29,7 @@ export async function PATCH(req: NextRequest) {
   const childId = typeof body.childId === "string" ? body.childId : ""
   if (!childId) return NextResponse.json({ error: "Missing childId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
 
   // Ownership: this child must be linked to the signed-in parent.
   const { data: link } = await (s as any)

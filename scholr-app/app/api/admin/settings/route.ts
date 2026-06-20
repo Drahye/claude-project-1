@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse }        from "next/server"
-import { createClient }                    from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { isPaidPlan }                       from "@/lib/plans"
-
-function serviceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
 
 export async function POST(req: NextRequest) {
   // 1 — verify caller is an authenticated admin
@@ -47,7 +39,7 @@ export async function POST(req: NextRequest) {
   } = body
   // Partial update — only change fields that were actually sent, so different
   // surfaces (Brand tab vs Public-page tab) never clobber each other's fields.
-  const svc = serviceClient()
+  const svc = await createServiceClient()
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) {
     if (!name.trim()) return NextResponse.json({ error: "School name is required" }, { status: 400 })

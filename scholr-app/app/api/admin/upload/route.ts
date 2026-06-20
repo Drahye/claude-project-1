@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse }        from "next/server"
-import { createClient }                    from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 type UploadType = "logo" | "avatar" | "gallery" | "student"
 
@@ -12,13 +11,6 @@ const BUCKET_MAP: Record<UploadType, string> = {
 }
 
 const MAX_SIZE = 5 * 1024 * 1024   // 5 MB
-
-function serviceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
 
 export async function POST(req: NextRequest) {
   // 1 — auth
@@ -52,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 })
     // Admins may set any student's photo; a parent may set only their own child's.
     if (!isAdmin) {
-      const svcCheck = serviceClient()
+      const svcCheck = await createServiceClient()
       const { data: link } = await (svcCheck as any)
         .from("parent_students").select("student_id")
         .eq("parent_id", user.id).eq("student_id", studentId).maybeSingle()
@@ -61,7 +53,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 3 — build storage path
-  const ext    = file.name.split(".").pop()?.toLowerCase() ?? "jpg"
+  // Sanitize the extension from the (untrusted) client filename to alphanumerics
+  // so it can't inject "/" or ".." into the storage key. Fall back to jpg.
+  const rawExt = file.name.split(".").pop()?.toLowerCase() ?? ""
+  const ext    = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : "jpg"
   const bucket = BUCKET_MAP[type]
   let   path: string
   if      (type === "logo")    path = `logos/${profile.school_id}.${ext}`
@@ -70,7 +65,7 @@ export async function POST(req: NextRequest) {
   else                         path = `gallery/${profile.school_id}/${Date.now()}.${ext}`
 
   // 4 — upload via service client
-  const svc    = serviceClient()
+  const svc    = await createServiceClient()
   const bytes  = await file.arrayBuffer()
   const buffer = new Uint8Array(bytes)
 

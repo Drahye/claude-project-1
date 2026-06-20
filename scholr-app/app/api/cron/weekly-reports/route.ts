@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createServiceClient } from "@/lib/supabase/server"
 import { generateReport, isGroqConfigured, weekEndFrom } from "@/lib/ai-report"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60 // allow longer runs for batch generation
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 
 /** Monday of the current week (YYYY-MM-DD). */
 function currentWeekStart() {
@@ -25,7 +21,10 @@ function currentWeekStart() {
  *
  * Protect with CRON_SECRET. Call as:
  *   GET/POST /api/cron/weekly-reports   with header  Authorization: Bearer <CRON_SECRET>
- *   (or ?secret=<CRON_SECRET>)
+ *
+ * Vercel Cron sends this header automatically when CRON_SECRET is set. The secret
+ * is only ever read from the header (never a query string), so it can't leak into
+ * access/server logs.
  */
 async function run(req: NextRequest) {
   const secret = process.env.CRON_SECRET
@@ -33,8 +32,7 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 })
   }
   const auth = req.headers.get("authorization") ?? ""
-  const qsSecret = new URL(req.url).searchParams.get("secret")
-  if (auth !== `Bearer ${secret}` && qsSecret !== secret) {
+  if (auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -42,7 +40,7 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: "GROQ_API_KEY not configured" }, { status: 503 })
   }
 
-  const s = svc()
+  const s = await createServiceClient()
   const weekStart = currentWeekStart()
   const weekEnd   = weekEndFrom(weekStart)
 

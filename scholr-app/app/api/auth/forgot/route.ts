@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { limitOr429 } from "@/lib/rate-limit"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createServiceClient } from "@/lib/supabase/server"
 import { sendEmail, hasVerifiedSender } from "@/lib/email"
 import { resetPasswordEmail } from "@/lib/email-templates"
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!hasVerifiedSender()) return NextResponse.json({ ok: true, fallback: true })
 
   const origin = new URL(req.url).origin
-  const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const admin = await createServiceClient()
 
   const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email })
 

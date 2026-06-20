@@ -1,4 +1,4 @@
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createServiceClient } from "@/lib/supabase/server"
 
 export const STUDENT_PHOTO_BUCKET = "student-photos"
 
@@ -12,7 +12,7 @@ export async function signStudentPhoto(ref: string | null | undefined): Promise<
   if (!ref) return null
   if (/^https?:\/\//.test(ref)) return ref // legacy public URL
   try {
-    const svc = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const svc = await createServiceClient()
     const { data } = await svc.storage.from(STUDENT_PHOTO_BUCKET).createSignedUrl(ref, 3600)
     return data?.signedUrl ?? null
   } catch {

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient as createSupabaseAdmin } from "@supabase/supabase-js"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendEmail, isEmailConfigured } from "@/lib/email"
 import { teacherInviteEmail } from "@/lib/email-templates"
@@ -57,12 +56,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ teacher: { ...revived, classes: [] }, email_sent: false, reactivated: true }, { status: 200 })
     }
 
-    // Use plain supabase-js admin client — auth.admin methods aren't on the SSR wrapper
-    const adminClient = createSupabaseAdmin(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-
+    // `service` is a plain service-role client, so auth.admin methods are available.
     // Branded school slug → the invite lands on /{slug}/join (set password)
     const { data: schoolRow } = await (service.from("schools") as any)
       .select("slug, name, public_color, primary_color, logo_url").eq("id", school_id).single()
@@ -81,7 +75,7 @@ export async function POST(req: Request) {
 
     // Generate an invite link WITHOUT sending Supabase's own email — we send a
     // branded email via Resend instead.
-    const { data: linkData, error: inviteError } = await adminClient.auth.admin.generateLink({
+    const { data: linkData, error: inviteError } = await service.auth.admin.generateLink({
       type:  "invite",
       email: email.trim().toLowerCase(),
       options: {
@@ -105,12 +99,12 @@ export async function POST(req: Request) {
         // The auth user already exists (e.g. re-invited). Generate a RECOVERY
         // link instead of an invite so there's still a usable link: it lets them
         // set a password and land on the school join page.
-        const { data: existingUser } = await adminClient.auth.admin.listUsers()
+        const { data: existingUser } = await service.auth.admin.listUsers()
         const found = existingUser?.users?.find(
           u => u.email?.toLowerCase() === email.trim().toLowerCase()
         )
         authUserId = found?.id ?? crypto.randomUUID()
-        const { data: recov } = await adminClient.auth.admin.generateLink({
+        const { data: recov } = await service.auth.admin.generateLink({
           type: "recovery",
           email: email.trim().toLowerCase(),
         })

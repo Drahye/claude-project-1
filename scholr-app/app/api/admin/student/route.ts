@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createServiceClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/api-auth"
 import type { StudentMedical } from "@/types/database"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401 as const }
-  const { data: profile } = await supabase
-    .from("profiles").select("school_id, role").eq("id", user.id).single() as unknown as
-    { data: { school_id: string; role: string } | null }
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
-    return { error: "Forbidden", status: 403 as const }
-  }
-  return { schoolId: profile.school_id }
-}
 
 const MED_KEYS: (keyof StudentMedical)[] = [
   "blood_group", "allergies", "conditions", "medications",
@@ -38,7 +21,7 @@ function cleanMedical(input: unknown): StudentMedical {
 /* Edit a student's core fields, photo, active state, and/or medical record. */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin()
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const studentId = typeof body.studentId === "string" ? body.studentId : ""
@@ -59,7 +42,7 @@ export async function PATCH(req: NextRequest) {
 
   if (Object.keys(update).length === 0) return NextResponse.json({ ok: true })
 
-  const { error, count } = await (svc() as any)
+  const { error, count } = await (await createServiceClient() as any)
     .from("students").update(update, { count: "exact" })
     .eq("id", studentId).eq("school_id", auth.schoolId)
 
@@ -71,12 +54,21 @@ export async function PATCH(req: NextRequest) {
 /* Remove a student from the school. */
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin()
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const body = await req.json().catch(() => ({})) as { studentId?: string }
   if (!body.studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
+
+  // Verify the student belongs to THIS admin's school before touching anything.
+  // Without this, a crafted studentId from another school would let its
+  // enrollments + parent links be wiped below (cross-tenant tampering) — the
+  // dependent deletes aren't school-scoped, only the final students delete is.
+  const { data: owned } = await (s as any)
+    .from("students").select("id").eq("id", body.studentId).eq("school_id", auth.schoolId).maybeSingle()
+  if (!owned) return NextResponse.json({ error: "Student not found" }, { status: 404 })
+
   // Clear dependent links first (in case FKs aren't ON DELETE CASCADE), then delete.
   await (s as any).from("student_class_enrollments").delete().eq("student_id", body.studentId)
   await (s as any).from("parent_students").delete().eq("student_id", body.studentId)

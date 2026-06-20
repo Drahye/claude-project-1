@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { limitOr429 } from "@/lib/rate-limit"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createServiceClient } from "@/lib/supabase/server"
 
 const ALLOWED = new Set(["view", "login_click"])
-
-function svc() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
 
 // Public endpoint — records a single public-page event. Fails silently/soft so
 // it never blocks page interaction. Validates the event type and resolves the
@@ -26,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const s = svc()
+    const s = await createServiceClient()
     const { data: school } = await s.from("schools").select("id").eq("slug", slug).maybeSingle()
     if (school) {
       await (s as any).from("school_page_events").insert({ school_id: (school as any).id, event })

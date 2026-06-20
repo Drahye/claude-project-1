@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401 as const }
-  const { data: profile } = await supabase
-    .from("profiles").select("school_id, role").eq("id", user.id).single() as unknown as
-    { data: { school_id: string; role: string } | null }
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
-    return { error: "Forbidden", status: 403 as const }
-  }
-  return { schoolId: profile.school_id }
-}
+import { createServiceClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/api-auth"
 
 /* Edit a teacher's profile + teaching details. */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin()
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const teacherId = typeof body.teacherId === "string" ? body.teacherId : ""
   if (!teacherId) return NextResponse.json({ error: "Missing teacherId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
 
   // Profile fields (scoped to this school's teachers only)
   const profileUpdate: Record<string, unknown> = {}
@@ -69,12 +52,12 @@ export async function PATCH(req: NextRequest) {
 /* Remove a teacher: deactivate (reversible) + unassign from any classes. */
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin()
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const body = await req.json().catch(() => ({})) as { teacherId?: string }
   if (!body.teacherId) return NextResponse.json({ error: "Missing teacherId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
   // Unassign from classes so nothing is left pointing at an inactive teacher.
   await (s as any).from("classes").update({ teacher_id: null })
     .eq("teacher_id", body.teacherId).eq("school_id", auth.schoolId)

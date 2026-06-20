@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { limitOr429 } from "@/lib/rate-limit"
 import { generateReport, isGroqConfigured } from "@/lib/ai-report"
 
 /** On-demand generation for a single student (teacher clicks "Generate"). */
@@ -7,6 +8,18 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  // Only staff may trigger generation — this is an expensive AI call. A parent
+  // (or any other signed-in user) hitting it directly would burn AI quota.
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single() as unknown as
+    { data: { role: string } | null }
+  if (!profile || !["teacher", "admin", "super_admin"].includes(profile.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  // Cap generation rate per IP as a second layer against runaway cost.
+  const limited = limitOr429(req, "ai-report", 15, 60_000); if (limited) return limited
 
   if (!isGroqConfigured()) {
     return NextResponse.json(

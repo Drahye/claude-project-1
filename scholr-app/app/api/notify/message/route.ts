@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendEmail, isEmailConfigured } from "@/lib/email"
 import { newMessageEmail } from "@/lib/email-templates"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 
 const PATH_BY_ROLE: Record<string, string> = {
   parent:      "/parent/messages",
@@ -26,7 +21,7 @@ export async function POST(req: NextRequest) {
   const { threadId } = await req.json()
   if (!threadId) return NextResponse.json({ error: "Missing threadId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
 
   // Thread + participants (verify caller is a participant)
   const { data: thread } = await (s as any)

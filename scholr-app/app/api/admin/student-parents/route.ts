@@ -1,30 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
-
-function serviceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401 as const, schoolId: "" }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("school_id, role")
-    .eq("id", user.id)
-    .single() as unknown as { data: { school_id: string; role: string } | null }
-
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
-    return { error: "Forbidden", status: 403 as const, schoolId: "" }
-  }
-  return { error: null, status: 200 as const, schoolId: profile.school_id }
-}
+import { createServiceClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/api-auth"
 
 /** Confirm both the student and the parent profile live in the admin's school */
 async function verify(svc: any, schoolId: string, studentId: string, parentId: string) {
@@ -42,12 +18,12 @@ async function verify(svc: any, schoolId: string, studentId: string, parentId: s
 /** POST { studentId, parentId, isPrimary } — link a parent to a student */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin()
-  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const { studentId, parentId, isPrimary = true } = await req.json()
   if (!studentId || !parentId) return NextResponse.json({ error: "Missing studentId or parentId" }, { status: 400 })
 
-  const svc = serviceClient()
+  const svc = await createServiceClient()
   const problem = await verify(svc, auth.schoolId, studentId, parentId)
   if (problem) return NextResponse.json({ error: problem }, { status: 404 })
 
@@ -71,12 +47,12 @@ export async function POST(req: NextRequest) {
 /** DELETE { studentId, parentId } — unlink a parent from a student */
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin()
-  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const { studentId, parentId } = await req.json()
   if (!studentId || !parentId) return NextResponse.json({ error: "Missing studentId or parentId" }, { status: 400 })
 
-  const svc = serviceClient()
+  const svc = await createServiceClient()
   const problem = await verify(svc, auth.schoolId, studentId, parentId)
   if (problem) return NextResponse.json({ error: problem }, { status: 404 })
 

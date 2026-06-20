@@ -1,40 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
-
-function serviceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401 as const, schoolId: "" }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("school_id, role")
-    .eq("id", user.id)
-    .single() as unknown as { data: { school_id: string; role: string } | null }
-
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
-    return { error: "Forbidden", status: 403 as const, schoolId: "" }
-  }
-  return { error: null, status: 200 as const, schoolId: profile.school_id }
-}
+import { createServiceClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/api-auth"
 
 /** POST { studentId, classId } — set the student's class (classId "" = unenrol) */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin()
-  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if (auth instanceof NextResponse) return auth
 
   const { studentId, classId } = await req.json()
   if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 })
 
-  const svc = serviceClient()
+  const svc = await createServiceClient()
 
   // Verify the student belongs to the admin's school
   const { data: student } = await (svc as any)

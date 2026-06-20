@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 
 /** A teacher edits the details of a class they own (homeroom teacher). */
 export async function PATCH(req: NextRequest) {
@@ -26,7 +21,8 @@ export async function PATCH(req: NextRequest) {
   if (body.academic_year !== undefined) update.academic_year = String(body.academic_year).trim().slice(0, 20)
   if (Object.keys(update).length === 0) return NextResponse.json({ ok: true })
 
-  const { error, count } = await (svc() as any)
+  const s = await createServiceClient()
+  const { error, count } = await (s as any)
     .from("classes").update(update, { count: "exact" })
     .eq("id", classId).eq("teacher_id", user.id)   // ownership: must be the homeroom teacher
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

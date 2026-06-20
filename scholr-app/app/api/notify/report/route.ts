@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createClient as createAdminClient } from "@supabase/supabase-js"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendEmail, isEmailConfigured } from "@/lib/email"
 import { reportReadyEmail } from "@/lib/email-templates"
 import { formatDate } from "@/lib/utils"
-
-function svc() {
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-}
 
 /** POST { studentId, weekStart } — tell parents a weekly report is ready */
 export async function POST(req: NextRequest) {
@@ -26,7 +21,7 @@ export async function POST(req: NextRequest) {
   const { studentId, weekStart } = await req.json()
   if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 })
 
-  const s = svc()
+  const s = await createServiceClient()
   const schoolId = caller.school_id
   const weekLabel = weekStart ? `week of ${formatDate(weekStart)}` : "this week"
 
