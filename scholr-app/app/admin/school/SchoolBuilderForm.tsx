@@ -24,7 +24,12 @@ export default function SchoolBuilderForm({ school, insights }: { school: School
   const [name, setName]         = useState(school.name)
   const [pubColor, setPubColor] = useState(school.public_color || school.primary_color || "#4f46e5")
   const [logo, setLogo]         = useState<string | null>(school.logo_url ?? null)
-  const [theme, setTheme]       = useState((school.theme as string) || "aurora")
+  // Aurora is the free theme. Free schools always sit on it — even if a paid
+  // theme was saved before a downgrade — so the selection matches what their
+  // public page actually renders and what's unlocked.
+  const [theme, setTheme]       = useState(
+    isPaidPlan(school.subscription_plan) ? ((school.theme as string) || "aurora") : "aurora"
+  )
   const [headline, setHeadline] = useState(school.welcome_headline ?? "")
   const [subtext, setSubtext]   = useState(school.welcome_subtext ?? "")
   const [hero, setHero]         = useState<string | null>(school.hero_image_url ?? null)
