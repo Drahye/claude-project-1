@@ -18,13 +18,13 @@ const NAV = [
   { label: "Students",    href: "/admin/students",    icon: GraduationCap },
   { label: "Teachers",    href: "/admin/teachers",    icon: Users },
   { label: "Classes",     href: "/admin/classes",     icon: BookOpen },
-  { label: "Town Hall",   href: "/admin/townhall",    icon: Megaphone },
+  { label: "Town Hall",   href: "/admin/townhall",    icon: Megaphone, tour: "town-hall" },
   { label: "Analytics",   href: "/admin/analytics",   icon: BarChart3 },
   { label: "Billing",     href: "/admin/billing",     icon: CreditCard, superOnly: true },
   { label: "Customization", href: "/admin/school",    icon: Globe, superOnly: true },
   { label: "Messages",    href: "/admin/messages",    icon: MessageSquare },
   { label: "Alerts",      href: "/admin/alerts",      icon: Bell },
-  { label: "Team",        href: "/admin/team",        icon: UserCog, superOnly: true },
+  { label: "Team",        href: "/admin/team",        icon: UserCog, superOnly: true, tour: "team" },
   { label: "Settings",    href: "/admin/settings",    icon: Settings },
 ]
 
@@ -120,12 +120,13 @@ export default function AdminSidebar({ profile, badges = {} }: Props) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto min-h-0">
-          {visibleNav.map(({ label, href, icon: Icon }) => {
+          {visibleNav.map(({ label, href, icon: Icon, tour }) => {
             const active = pathname === href || (href !== "/admin/dashboard" && pathname.startsWith(href))
             return (
               <Link
                 key={href}
                 href={href}
+                data-tour={tour}
                 className={cn(
                   "group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium",
                   "transition-all duration-200 hover:translate-x-0.5",

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   X, ArrowRight, Sparkles, ChevronLeft, GraduationCap,
-  BarChart3, Users, Zap, BookOpen, Heart,
+  BarChart3, Users, Zap, BookOpen, Heart, Megaphone, UserCog,
 } from "lucide-react"
 
 /* ── Tour steps ──────────────────────────────────────────────── */
@@ -49,6 +49,20 @@ const STEPS: TourStep[] = [
     title: "AI-powered reports",
     body: "Every Friday, teachers can use Claude AI to generate warm, personalised weekly reports for every parent. Zero writing time.",
     placement: "top",
+  },
+  {
+    target: "town-hall",
+    icon: Megaphone,
+    title: "Town Hall broadcasts",
+    body: "Send one announcement to every parent and teacher at once — delivered in-app and by email. Perfect for closures, events, and reminders.",
+    placement: "right",
+  },
+  {
+    target: "team",
+    icon: UserCog,
+    title: "Build your admin team",
+    body: "Invite co-admins to help run the school. They get day-to-day access while billing and branding stay owner-only.",
+    placement: "right",
   },
 ]
 
@@ -115,7 +129,12 @@ export default function DashboardTour({
   }, [storageKey])
 
   const next = useCallback(() => {
-    const nextStep = step + 1
+    // Look ahead to the next step whose anchor exists (some are owner-only, e.g.
+    // "team", and won't render for limited admins). If none remain, finish.
+    let nextStep = step + 1
+    while (nextStep < STEPS.length && !document.querySelector(`[data-tour="${STEPS[nextStep]?.target}"]`)) {
+      nextStep++
+    }
     if (nextStep >= STEPS.length) {
       setActive(false)
       setBeacon(false)
