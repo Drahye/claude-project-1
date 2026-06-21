@@ -1,9 +1,10 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, Search, X, Loader2, GraduationCap, CheckCircle2 } from "lucide-react"
+import { Plus, Search, X, Loader2, GraduationCap, CheckCircle2, Upload, FileText } from "lucide-react"
 import { getInitials, avatarColor, formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { parseCsv, rowsToStudents, type ParsedRow } from "@/lib/csv-students"
 import EmptyState from "@/components/shared/EmptyState"
 
 interface Student {
@@ -29,9 +30,17 @@ export default function StudentsPanel({ students: initial, classes, schoolId }: 
   const [students, setStudents] = useState<Student[]>(initial)
   const [query, setQuery]       = useState("")
   const [showForm, setShowForm] = useState(false)
+  const [showCsv, setShowCsv]   = useState(false)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [error, setError]       = useState<string | null>(null)
+
+  // CSV import
+  const [csvClassId, setCsvClassId] = useState("")
+  const [parsed, setParsed]         = useState<ParsedRow[]>([])
+  const [fileName, setFileName]     = useState("")
+  const [importing, setImporting]   = useState(false)
+  const [notice, setNotice]         = useState<string | null>(null)
 
   const [form, setForm] = useState({
     full_name:        "",
@@ -108,6 +117,50 @@ export default function StudentsPanel({ students: initial, classes, schoolId }: 
     setTimeout(() => setSaved(false), 3000)
   }
 
+  async function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name); setError(null)
+    const text = await file.text()
+    const rows = rowsToStudents(parseCsv(text))
+    if (rows.length === 0) { setError("No rows found in that file."); setParsed([]); return }
+    setParsed(rows)
+  }
+
+  async function importCsv() {
+    if (parsed.length === 0) { setError("Choose a CSV file first."); return }
+    setImporting(true); setError(null); setNotice(null)
+    try {
+      const res = await fetch("/api/admin/student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ students: parsed, classId: csvClassId || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? "Import failed."); return }
+      const added = (data.students ?? []) as Student[]
+      const cls = classes.find(c => c.id === csvClassId) ?? null
+      setStudents(prev => [
+        ...added.map(s => ({
+          ...s,
+          enrollments: csvClassId && cls ? [{ class: cls }] : [],
+          parents: [] as Student["parents"],
+        })),
+        ...prev,
+      ])
+      const parts = [`${data.created} added`]
+      if (data.skipped) parts.push(`${data.skipped} already existed`)
+      if (data.invalid) parts.push(`${data.invalid} skipped (missing name/adm. no.)`)
+      setNotice(parts.join(" · "))
+      setParsed([]); setFileName(""); setShowCsv(false)
+      setTimeout(() => setNotice(null), 5000)
+    } catch {
+      setError("Network error. Please try again.")
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Toolbar */}
@@ -129,11 +182,20 @@ export default function StudentsPanel({ students: initial, classes, schoolId }: 
         </div>
 
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => { setShowForm(v => !v); setShowCsv(false) }}
           className="btn-primary h-10 px-4 gap-2 text-sm"
         >
           {showForm ? <X size={15} /> : <Plus size={15} />}
           {showForm ? "Cancel" : "Add student"}
+        </button>
+
+        <button
+          onClick={() => { setShowCsv(v => !v); setShowForm(false); setError(null) }}
+          className="h-10 px-4 gap-2 text-sm inline-flex items-center rounded-xl font-semibold"
+          style={{ background: "var(--c-surface)", color: "var(--c-text)" }}
+        >
+          {showCsv ? <X size={15} /> : <Upload size={15} />}
+          {showCsv ? "Cancel" : "Import CSV"}
         </button>
 
         {saved && (
@@ -142,7 +204,57 @@ export default function StudentsPanel({ students: initial, classes, schoolId }: 
             <span className="text-sm font-semibold" style={{ color: "var(--c-emerald)" }}>Student added</span>
           </div>
         )}
+        {notice && (
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 size={15} style={{ color: "var(--c-emerald)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--c-emerald)" }}>{notice}</span>
+          </div>
+        )}
       </div>
+
+      {/* CSV import */}
+      {showCsv && (
+        <div className="card p-6 space-y-4">
+          <h2 className="text-sm font-bold" style={{ color: "var(--c-text)" }}>Import students from CSV</h2>
+          <p className="text-xs" style={{ color: "var(--c-text-muted)" }}>
+            Columns: <strong>full_name, admission_number, gender, date_of_birth</strong> (YYYY-MM-DD). A header row is optional. Students with an admission number that already exists are skipped.
+          </p>
+          {classes.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--c-text-muted)" }}>Enrol all in class (optional)</label>
+              <select className="input h-10 text-sm w-full sm:w-72" value={csvClassId} onChange={e => setCsvClassId(e.target.value)} style={{ fontFamily: "inherit" }}>
+                <option value="">No class yet</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name} — {c.grade_level}</option>)}
+              </select>
+            </div>
+          )}
+          <label className="flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold cursor-pointer w-fit"
+            style={{ background: "var(--c-surface)", color: "var(--c-text)" }}>
+            <FileText size={15} /> {fileName || "Choose CSV file"}
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvFile} />
+          </label>
+          {parsed.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
+              <div className="px-4 py-2 text-xs font-semibold" style={{ background: "var(--c-surface)", color: "var(--c-text-mid)" }}>
+                {parsed.length} student{parsed.length === 1 ? "" : "s"} ready to import
+              </div>
+              <div className="max-h-56 overflow-y-auto divide-y" style={{ borderColor: "var(--c-border)" }}>
+                {parsed.slice(0, 50).map((r, i) => (
+                  <div key={i} className="px-4 py-2 text-sm flex justify-between gap-3" style={{ color: "var(--c-text)" }}>
+                    <span className="truncate">{r.full_name || <em style={{ color: "var(--c-red)" }}>missing name</em>}</span>
+                    <span className="shrink-0" style={{ color: "var(--c-text-muted)" }}>{r.admission_number || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {error && <p className="text-sm" style={{ color: "var(--c-red)" }}>{error}</p>}
+          <button onClick={importCsv} disabled={importing || parsed.length === 0} className="btn-primary h-10 px-5 gap-2 disabled:opacity-50">
+            {importing ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+            {importing ? "Importing…" : `Import ${parsed.length || ""} student${parsed.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      )}
 
       {/* Add student form */}
       {showForm && (
