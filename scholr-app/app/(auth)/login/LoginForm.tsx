@@ -1,11 +1,21 @@
 "use client"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Eye, EyeOff, Loader2, LayoutDashboard, LogIn } from "lucide-react"
+import { Eye, EyeOff, Loader2, LayoutDashboard, LogIn, Mail } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import GoogleButton, { OrDivider } from "@/components/auth/GoogleButton"
 
 type SessionState = "loading" | "authenticated" | "guest"
+
+// Remembered-device hint — lets returning teachers/parents sign back in with one
+// tap (prefilled email + magic link) instead of typing a password every time.
+const HINT_KEY = "scholr_last_login"
+interface LoginHint { email: string; name?: string }
+function readHint(): LoginHint | null {
+  try { const v = localStorage.getItem(HINT_KEY); return v ? JSON.parse(v) as LoginHint : null } catch { return null }
+}
+function writeHint(hint: LoginHint) { try { localStorage.setItem(HINT_KEY, JSON.stringify(hint)) } catch { /* ignore */ } }
+function clearHint() { try { localStorage.removeItem(HINT_KEY) } catch { /* ignore */ } }
 
 export default function LoginForm({
   redirectTo,
@@ -21,6 +31,19 @@ export default function LoginForm({
   const [error, setError]           = useState(serverError ?? "")
   const [sessionState, setSession]  = useState<SessionState>("loading")
   const [dashboardHref, setDash]    = useState<string>("/")
+  const [remember, setRemember]     = useState(true)
+  const [returningName, setReturningName] = useState<string | null>(null)
+  const [magicLoading, setMagicLoading]   = useState(false)
+  const [magicSent, setMagicSent]   = useState(false)
+
+  // Prefill from a remembered device (one-tap return for teachers/parents)
+  useEffect(() => {
+    const hint = readHint()
+    if (hint?.email) {
+      setEmail(hint.email)
+      setReturningName(hint.name ?? null)
+    }
+  }, [])
 
   // Check for an active session on mount
   useEffect(() => {
@@ -64,7 +87,8 @@ export default function LoginForm({
     setError("")
     setLoading(true)
 
-    const { error: err } = await createClient().auth.signInWithPassword({ email, password })
+    const supabase = createClient()
+    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
 
     if (err) {
       setError(err.message)
@@ -72,8 +96,42 @@ export default function LoginForm({
       return
     }
 
+    // Remember this device for a streamlined return (name for the greeting).
+    if (remember) {
+      const { data: { user } } = await supabase.auth.getUser()
+      let name: string | undefined
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles").select("full_name").eq("id", user.id).maybeSingle() as { data: { full_name: string } | null }
+        name = profile?.full_name
+      }
+      writeHint({ email, name })
+    } else {
+      clearHint()
+    }
+
     // Hard redirect so session cookies are committed before middleware reads them
     window.location.href = redirectTo ?? "/"
+  }
+
+  // Passwordless: email a one-tap sign-in link (no password needed).
+  async function sendMagicLink() {
+    setError("")
+    if (!email.trim()) { setError("Enter your email first, then request a link."); return }
+    setMagicLoading(true)
+    const supabase = createClient()
+    const nextParam = redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : ""
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        shouldCreateUser: false,   // existing accounts only — invites create users
+        emailRedirectTo: `${window.location.origin}/api/auth/callback${nextParam}`,
+      },
+    })
+    setMagicLoading(false)
+    if (err) { setError(err.message); return }
+    if (remember) writeHint({ email: email.trim(), name: returningName ?? undefined })
+    setMagicSent(true)
   }
 
   // ── Loading skeleton ─────────────────────────────────────────────────────────
@@ -141,7 +199,32 @@ export default function LoginForm({
     )
   }
 
+  // ── Magic link sent confirmation ─────────────────────────────────────────────
+  if (magicSent) {
+    return (
+      <div>
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style={{ background: "var(--c-indigo-bg)" }}>
+          <Mail size={24} style={{ color: "var(--c-indigo)" }} />
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight mb-2" style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}>
+          Check your inbox
+        </h1>
+        <p className="mb-8" style={{ color: "var(--c-text-mid)", fontSize: "0.9375rem" }}>
+          We emailed a one-tap sign-in link to <strong style={{ color: "var(--c-text)" }}>{email}</strong>. Open it on this device to sign in — no password needed.
+        </p>
+        <button
+          onClick={() => { setMagicSent(false) }}
+          className="w-full h-11 rounded-xl text-sm font-medium transition-colors"
+          style={{ color: "var(--c-text-muted)", background: "var(--c-surface)", border: "1px solid var(--c-border)" }}
+        >
+          Back to sign in
+        </button>
+      </div>
+    )
+  }
+
   // ── Guest login form ─────────────────────────────────────────────────────────
+  const firstName = returningName?.split(" ")[0]
   return (
     <div>
       <div className="mb-8">
@@ -149,10 +232,10 @@ export default function LoginForm({
           className="text-3xl font-extrabold tracking-tight mb-2"
           style={{ color: "var(--c-text)", letterSpacing: "-0.025em" }}
         >
-          Welcome back
+          {firstName ? `Welcome back, ${firstName}` : "Welcome back"}
         </h1>
         <p style={{ color: "var(--c-text-mid)", fontSize: "0.9375rem" }}>
-          Sign in to your school account
+          {firstName ? "Sign in with your password, or get a one-tap link by email." : "Sign in to your school account"}
         </p>
       </div>
 
@@ -214,6 +297,11 @@ export default function LoginForm({
           </div>
         </div>
 
+        <label className="flex items-center gap-2 text-sm select-none cursor-pointer" style={{ color: "var(--c-text-mid)" }}>
+          <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 rounded" style={{ accentColor: "var(--c-indigo)" }} />
+          Keep me signed in on this device
+        </label>
+
         <button type="submit" disabled={loading} className="btn-primary w-full h-12 mt-2">
           {loading
             ? <><Loader2 size={16} className="animate-spin" /> Signing in…</>
@@ -221,6 +309,20 @@ export default function LoginForm({
           }
         </button>
       </form>
+
+      {/* Passwordless option — easiest repeat sign-in for teachers & parents */}
+      <button
+        type="button"
+        onClick={sendMagicLink}
+        disabled={magicLoading}
+        className="w-full h-11 mt-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+        style={{ color: "var(--c-indigo)", background: "var(--c-indigo-bg)" }}
+      >
+        {magicLoading
+          ? <><Loader2 size={15} className="animate-spin" /> Sending link…</>
+          : <><Mail size={15} /> Email me a sign-in link</>
+        }
+      </button>
 
       <p className="mt-6 text-center text-sm" style={{ color: "var(--c-text-muted)" }}>
         Don&apos;t have an account?{" "}

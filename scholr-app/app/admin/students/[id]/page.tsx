@@ -48,6 +48,8 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
       data: Array<{ class: { id: string; name: string; grade_level: string; academic_year: string; teacher_id: string | null } | null }> | null
     }
   const cls = enr?.[0]?.class ?? null
+  // A student can be in many classes — pass them all to the manage panel.
+  const currentClassIds = (enr ?? []).map(e => e.class?.id).filter(Boolean) as string[]
 
   // Class teacher name
   let teacherName: string | null = null
@@ -183,7 +185,7 @@ export default async function StudentDetailPage({ params }: { params: Promise<{ 
           <StudentEditor studentId={student.id} medical={student.medical ?? null} />
           <StudentManage
             studentId={student.id}
-            currentClassId={cls?.id ?? null}
+            currentClassIds={currentClassIds}
             classes={allClasses ?? []}
             linkedParents={parents}
             availableParents={availableParents ?? []}

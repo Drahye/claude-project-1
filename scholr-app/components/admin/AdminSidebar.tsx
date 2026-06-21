@@ -4,23 +4,27 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
-  Bell, Settings, LogOut, Shield, BarChart3, CreditCard, MessageSquare, Globe,
+  Bell, Settings, LogOut, Shield, BarChart3, CreditCard, MessageSquare, Globe, Megaphone, UserCog,
 } from "lucide-react"
 import { cn, getInitials, avatarColor } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import ThemeToggle from "@/components/ThemeToggle"
 import MobileBottomNav from "@/components/shared/MobileBottomNav"
 
+// `superOnly` items show only to the school owner (super_admin). Limited admins
+// can't reach billing or school branding/customization.
 const NAV = [
   { label: "Dashboard",   href: "/admin/dashboard",  icon: LayoutDashboard },
   { label: "Students",    href: "/admin/students",    icon: GraduationCap },
   { label: "Teachers",    href: "/admin/teachers",    icon: Users },
   { label: "Classes",     href: "/admin/classes",     icon: BookOpen },
+  { label: "Town Hall",   href: "/admin/townhall",    icon: Megaphone },
   { label: "Analytics",   href: "/admin/analytics",   icon: BarChart3 },
-  { label: "Billing",     href: "/admin/billing",     icon: CreditCard },
-  { label: "Customization", href: "/admin/school",    icon: Globe },
+  { label: "Billing",     href: "/admin/billing",     icon: CreditCard, superOnly: true },
+  { label: "Customization", href: "/admin/school",    icon: Globe, superOnly: true },
   { label: "Messages",    href: "/admin/messages",    icon: MessageSquare },
   { label: "Alerts",      href: "/admin/alerts",      icon: Bell },
+  { label: "Team",        href: "/admin/team",        icon: UserCog, superOnly: true },
   { label: "Settings",    href: "/admin/settings",    icon: Settings },
 ]
 
@@ -50,6 +54,9 @@ function NavBadge({ count }: { count: number }) {
 export default function AdminSidebar({ profile, badges = {} }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
+
+  // Hide owner-only items (billing, customization) from limited admins.
+  const visibleNav = NAV.filter(item => !item.superOnly || profile.role === "super_admin")
 
   async function signOut() {
     await createClient().auth.signOut()
@@ -113,7 +120,7 @@ export default function AdminSidebar({ profile, badges = {} }: Props) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto min-h-0">
-          {NAV.map(({ label, href, icon: Icon }) => {
+          {visibleNav.map(({ label, href, icon: Icon }) => {
             const active = pathname === href || (href !== "/admin/dashboard" && pathname.startsWith(href))
             return (
               <Link
@@ -221,7 +228,7 @@ export default function AdminSidebar({ profile, badges = {} }: Props) {
 
       {/* ── Mobile bottom nav — 4 tabs + More sheet ───────────────────────── */}
       <MobileBottomNav
-        nav={NAV}
+        nav={visibleNav}
         badges={badges}
         dashboardHref="/admin/dashboard"
         settingsHref="/admin/settings"

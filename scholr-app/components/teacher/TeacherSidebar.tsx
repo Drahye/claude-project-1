@@ -4,7 +4,7 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, ClipboardCheck, BookOpen, Sparkles,
-  MessageSquare, Bell, Settings, LogOut, GraduationCap,
+  MessageSquare, Bell, Settings, LogOut, GraduationCap, Megaphone, Users,
 } from "lucide-react"
 import { cn, getInitials, avatarColor } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -13,9 +13,11 @@ import MobileBottomNav from "@/components/shared/MobileBottomNav"
 
 const NAV = [
   { label: "Dashboard",  href: "/teacher/dashboard",  icon: LayoutDashboard },
+  { label: "Students",   href: "/teacher/students",    icon: Users },
   { label: "Attendance", href: "/teacher/attendance",  icon: ClipboardCheck },
   { label: "Homework",   href: "/teacher/homework",    icon: BookOpen },
   { label: "AI Reports", href: "/teacher/ai",          icon: Sparkles },
+  { label: "Town Hall",  href: "/teacher/townhall",    icon: Megaphone },
   { label: "Messages",   href: "/teacher/messages",    icon: MessageSquare },
   { label: "Alerts",     href: "/teacher/alerts",      icon: Bell },
   { label: "Settings",   href: "/teacher/settings",    icon: Settings },

@@ -3,7 +3,6 @@ import { useState } from "react"
 import Link from "next/link"
 import { Plus, X, Loader2, BookOpen, CheckCircle2, Users } from "lucide-react"
 import { avatarColor, getInitials } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 import EmptyState from "@/components/shared/EmptyState"
 
 interface ClassRow {
@@ -35,7 +34,7 @@ const GRADE_LEVELS = [
 const currentYear = new Date().getFullYear()
 const ACADEMIC_YEARS = [`${currentYear - 1}/${currentYear}`, `${currentYear}/${currentYear + 1}`]
 
-export default function ClassesPanel({ classes: initial, teachers, schoolId }: Props) {
+export default function ClassesPanel({ classes: initial, teachers }: Props) {
   const [classes, setClasses] = useState<ClassRow[]>(initial)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -59,30 +58,34 @@ export default function ClassesPanel({ classes: initial, teachers, schoolId }: P
     if (!form.name.trim()) { setError("Class name is required."); return }
 
     setSaving(true)
-    const supabase = createClient()
 
-    const { data: newClass, error: err } = await (supabase.from("classes") as any)
-      .insert({
-        school_id:     schoolId,
-        name:          form.name.trim(),
-        grade_level:   form.grade_level,
-        academic_year: form.academic_year,
-        teacher_id:    form.teacher_id || null,
+    // Goes through the server so an assigned teacher gets an email + in-app
+    // notification — a direct client insert can't send mail.
+    try {
+      const res = await fetch("/api/admin/class", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:          form.name.trim(),
+          grade_level:   form.grade_level,
+          academic_year: form.academic_year,
+          teacher_id:    form.teacher_id || null,
+        }),
       })
-      .select()
-      .single() as { data: ClassRow | null; error: { message: string } | null }
+      const data = await res.json()
+      setSaving(false)
+      if (!res.ok) { setError(data.error ?? "Couldn't create the class."); return }
 
-    setSaving(false)
-
-    if (err) {
-      setError(err.message)
-    } else if (newClass) {
+      const newClass = data.class as ClassRow
       const teacher = teachers.find(t => t.id === form.teacher_id) ?? null
       setClasses(prev => [{ ...newClass, teacher: teacher ? { full_name: teacher.full_name } : null, enrollment_count: 0 }, ...prev])
       setShowForm(false)
       setSaved(true)
       setForm({ name: "", grade_level: GRADE_LEVELS[0], academic_year: ACADEMIC_YEARS[1], teacher_id: teachers[0]?.id ?? "" })
       setTimeout(() => setSaved(false), 3000)
+    } catch {
+      setSaving(false)
+      setError("Network error. Please try again.")
     }
   }
 

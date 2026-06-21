@@ -274,6 +274,16 @@ export interface SchoolPageEvent {
   created_at: string
 }
 
+// A school-wide Town Hall broadcast (admins → all parents + teachers)
+export interface Broadcast {
+  id: string
+  school_id: string
+  author_id: string | null
+  title: string
+  body: string
+  created_at: string
+}
+
 // ─── Supabase DB helper type ──────────────────────────────────────────────────
 
 // An insertable row: every column is optional (the DB fills id, timestamps, and
@@ -319,6 +329,7 @@ export interface Database {
       subscriptions:             Table<Subscription,           Ins<Subscription, "school_id" | "stripe_subscription_id" | "stripe_customer_id" | "plan" | "status" | "current_period_start" | "current_period_end">, Partial<Subscription>>
       gallery_images:            Table<GalleryImage,           Ins<GalleryImage, "school_id" | "storage_path" | "url" | "name">,                                 Partial<GalleryImage>>
       school_page_events:        Table<SchoolPageEvent,        Ins<SchoolPageEvent, "school_id" | "event">,                                                     Partial<SchoolPageEvent>>
+      broadcasts:                Table<Broadcast,              Ins<Broadcast, "school_id" | "title" | "body">,                                                  Partial<Broadcast>>
     }
     Views: Record<string, never>
     Functions: Record<string, never>

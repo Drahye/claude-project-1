@@ -20,16 +20,16 @@ export async function POST(req: NextRequest) {
   const priceId = PRICE_IDS[plan]
   if (!priceId) return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
 
-  // Authorize: only an admin may start checkout, and only for THEIR OWN school.
-  // school_id is derived from the session — never trust a client-supplied id, or
-  // any authenticated user could start billing against an arbitrary school.
+  // Authorize: billing is owner-only (super_admin), and only for THEIR OWN
+  // school. school_id is derived from the session — never trust a client-supplied
+  // id, or any authenticated user could start billing against an arbitrary school.
   const { data: profile } = await supabase
     .from("profiles")
     .select("school_id, role")
     .eq("id", user.id)
     .single() as unknown as { data: { school_id: string; role: string } | null }
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
+  if (!profile || profile.role !== "super_admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const school_id = profile.school_id

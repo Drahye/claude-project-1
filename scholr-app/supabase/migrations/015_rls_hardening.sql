@@ -62,6 +62,7 @@ $$;
 
 -- ── 3. students: staff see the whole school; parents only their children ─────
 drop policy if exists "same_school_students" on students;
+drop policy if exists "students_read" on students;
 create policy "students_read" on students
   for select using (
     school_id = auth_school_id()
@@ -74,6 +75,7 @@ create policy "students_read" on students
 
 -- ── 4. attendance: parents only their children's rows ────────────────────────
 drop policy if exists "same_school_attendance_read" on attendance;
+drop policy if exists "attendance_read" on attendance;
 create policy "attendance_read" on attendance
   for select using (
     school_id = auth_school_id()
@@ -87,6 +89,7 @@ create policy "attendance_read" on attendance
 -- Drafts (sent_at is null) created by the cron stay hidden until a teacher
 -- approves/sends them. Staff still see everything (incl. drafts) to review.
 drop policy if exists "same_school_weekly_reports" on weekly_reports;
+drop policy if exists "weekly_reports_read" on weekly_reports;
 create policy "weekly_reports_read" on weekly_reports
   for select using (
     school_id = auth_school_id()
@@ -98,6 +101,7 @@ create policy "weekly_reports_read" on weekly_reports
 
 -- ── 6. homework_submissions: parents only their children's submissions ───────
 drop policy if exists "same_school_hw_submissions" on homework_submissions;
+drop policy if exists "hw_submissions_read" on homework_submissions;
 create policy "hw_submissions_read" on homework_submissions
   for select using (
     school_id = auth_school_id()

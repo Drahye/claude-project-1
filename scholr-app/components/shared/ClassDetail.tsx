@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Pencil, Check, Loader2, Plus, X, ClipboardCheck, BookOpen,
-  GraduationCap,
+  GraduationCap, Search, UserPlus,
 } from "lucide-react"
 import { avatarColor, getInitials } from "@/lib/utils"
 import type { StudentActivity } from "@/types/database"
@@ -15,6 +15,7 @@ interface StudentRow {
   photo_url: string | null   // signed
   activities: StudentActivity[]
 }
+interface AvailableStudent { id: string; full_name: string; admission_number: string }
 interface Props {
   classId: string
   name: string
@@ -23,6 +24,11 @@ interface Props {
   teacherName: string | null
   students: StudentRow[]
   canManage: boolean
+  /** Manage enrolment (add/remove students). Defaults to canManage; admins get
+      this true even when canManage is false (activities stay teacher-only). */
+  canEnroll?: boolean
+  /** School students not already in this class — for the "enroll existing" picker. */
+  availableStudents?: AvailableStudent[]
 }
 
 const CATEGORIES = [
@@ -35,9 +41,43 @@ const CATEGORIES = [
 ]
 const tintFor = (c: string) => CATEGORIES.find(x => x.id === c)?.tint ?? "var(--c-indigo)"
 
-export default function ClassDetail({ classId, name, grade, academicYear, teacherName, students, canManage }: Props) {
+export default function ClassDetail({ classId, name, grade, academicYear, teacherName, students, canManage, canEnroll = canManage, availableStudents = [] }: Props) {
   const router = useRouter()
   const [err, setErr] = useState<string | null>(null)
+
+  // add-students panel
+  const [addPanel, setAddPanel] = useState<null | "existing" | "new">(null)
+  const [query, setQuery] = useState("")
+  const [enrolling, setEnrolling] = useState<string | null>(null)
+  const [newStu, setNewStu] = useState({ full_name: "", admission_number: "", gender: "male", date_of_birth: "" })
+  const [savingNew, setSavingNew] = useState(false)
+
+  const matches = query.trim()
+    ? availableStudents.filter(s =>
+        s.full_name.toLowerCase().includes(query.toLowerCase()) ||
+        s.admission_number.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 8)
+    : availableStudents.slice(0, 8)
+
+  async function enrollExisting(studentId: string) {
+    setEnrolling(studentId); setErr(null)
+    try {
+      const res = await fetch("/api/class/enroll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, studentId }) })
+      const j = await res.json(); if (!res.ok) throw new Error(j.error ?? "Failed")
+      setQuery(""); router.refresh()
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed to enroll") } finally { setEnrolling(null) }
+  }
+
+  async function createAndEnroll(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newStu.full_name.trim() || !newStu.admission_number.trim()) { setErr("Name and admission number are required."); return }
+    setSavingNew(true); setErr(null)
+    try {
+      const res = await fetch("/api/class/enroll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ classId, newStudent: newStu }) })
+      const j = await res.json(); if (!res.ok) throw new Error(j.error ?? "Failed")
+      setNewStu({ full_name: "", admission_number: "", gender: "male", date_of_birth: "" }); setAddPanel(null); router.refresh()
+    } catch (e) { setErr(e instanceof Error ? e.message : "Failed to add student") } finally { setSavingNew(false) }
+  }
 
   // header edit
   const [editing, setEditing] = useState(false)
@@ -128,9 +168,71 @@ export default function ClassDetail({ classId, name, grade, academicYear, teache
       </div>
 
       {/* Roster */}
-      <h2 className="text-xs font-bold uppercase tracking-widest mb-3 px-1" style={{ color: "var(--c-text-muted)" }}>
-        Students {canManage && <span className="normal-case font-medium" style={{ letterSpacing: 0 }}>· tap a student to add clubs, sports &amp; activities</span>}
-      </h2>
+      <div className="flex items-center justify-between mb-3 px-1 gap-3">
+        <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--c-text-muted)" }}>
+          Students {canManage && <span className="normal-case font-medium" style={{ letterSpacing: 0 }}>· tap a student to add clubs, sports &amp; activities</span>}
+        </h2>
+        {canEnroll && (
+          <button onClick={() => setAddPanel(p => p ? null : "existing")} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0" style={{ background: "var(--c-indigo)", color: "#fff" }}>
+            <UserPlus size={13} /> Add students
+          </button>
+        )}
+      </div>
+
+      {/* Add-students panel */}
+      {canEnroll && addPanel && (
+        <div className="card-float p-4 mb-4">
+          <div className="flex gap-2 mb-3">
+            <button onClick={() => setAddPanel("existing")} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: addPanel === "existing" ? "var(--c-indigo-bg)" : "var(--c-surface)", color: addPanel === "existing" ? "var(--c-indigo)" : "var(--c-text-muted)" }}>Enrol existing</button>
+            <button onClick={() => setAddPanel("new")} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: addPanel === "new" ? "var(--c-indigo-bg)" : "var(--c-surface)", color: addPanel === "new" ? "var(--c-indigo)" : "var(--c-text-muted)" }}>New student</button>
+            <button onClick={() => setAddPanel(null)} className="ml-auto opacity-60 hover:opacity-100" aria-label="Close"><X size={16} /></button>
+          </div>
+
+          {addPanel === "existing" && (
+            availableStudents.length === 0 ? (
+              <p className="text-sm" style={{ color: "var(--c-text-muted)" }}>Every student is already in this class. Use “New student” to add someone new.</p>
+            ) : (
+              <>
+                <div className="relative mb-2">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--c-text-muted)" }} />
+                  <input className="input h-10 text-sm w-full pl-9" placeholder="Search students to add…" value={query} onChange={e => setQuery(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  {matches.length === 0 && <p className="text-xs px-1" style={{ color: "var(--c-text-muted)" }}>No matches.</p>}
+                  {matches.map(s => (
+                    <div key={s.id} className="flex items-center gap-3 px-2 py-1.5 rounded-lg" style={{ background: "var(--c-surface)" }}>
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: avatarColor(s.full_name) }}>{getInitials(s.full_name)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: "var(--c-text)" }}>{s.full_name}</p>
+                        <p className="text-xs truncate" style={{ color: "var(--c-text-muted)" }}>{s.admission_number}</p>
+                      </div>
+                      <button onClick={() => enrollExisting(s.id)} disabled={enrolling === s.id} className="btn-primary h-8 px-3 gap-1 text-xs disabled:opacity-50">
+                        {enrolling === s.id ? <Loader2 size={12} className="animate-spin" /> : <Plus size={13} />} Enrol
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          )}
+
+          {addPanel === "new" && (
+            <form onSubmit={createAndEnroll} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input className="input h-10 text-sm w-full" placeholder="Full name *" value={newStu.full_name} onChange={e => setNewStu(p => ({ ...p, full_name: e.target.value }))} required />
+                <input className="input h-10 text-sm w-full" placeholder="Admission no. *" value={newStu.admission_number} onChange={e => setNewStu(p => ({ ...p, admission_number: e.target.value }))} required />
+                <select className="input h-10 text-sm w-full" value={newStu.gender} onChange={e => setNewStu(p => ({ ...p, gender: e.target.value }))} style={{ fontFamily: "inherit" }}>
+                  <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+                </select>
+                <input type="date" className="input h-10 text-sm w-full" value={newStu.date_of_birth} onChange={e => setNewStu(p => ({ ...p, date_of_birth: e.target.value }))} />
+              </div>
+              <button type="submit" disabled={savingNew} className="btn-primary h-10 px-5 gap-2 disabled:opacity-50">
+                {savingNew ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />}{savingNew ? "Adding…" : "Add & enrol"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {students.length === 0 ? (
         <div className="card-float px-5 py-10 text-center"><p className="text-sm" style={{ color: "var(--c-text-muted)" }}>No students enrolled in this class yet.</p></div>

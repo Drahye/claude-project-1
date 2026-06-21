@@ -237,3 +237,80 @@ export function newMessageEmail(opts: { recipientName: string; senderName: strin
     }),
   }
 }
+
+/* ── 7. Admin (co-admin) invite ─────────────────────────────────────────────── */
+export function adminInviteEmail(opts: {
+  adminName: string; schoolName: string; inviteLink: string
+  accent?: string; logoUrl?: string | null
+}) {
+  const first  = esc(opts.adminName.split(" ")[0] || "there")
+  const school = esc(opts.schoolName)
+  return {
+    subject: `You're invited to help run ${opts.schoolName} on Scholr`,
+    html: emailLayout({
+      accent:       opts.accent,
+      brandName:    opts.schoolName,
+      brandLogoUrl: opts.logoUrl ?? undefined,
+      eyebrow:      "Administrator invitation",
+      heading:      `${first}, welcome to ${school}`,
+      body: `
+        <p style="margin:0 0 14px">The owner of <strong>${school}</strong> has invited you to join as an <strong>administrator</strong>.</p>
+        <p style="margin:0 0 16px">You'll be able to manage students, teachers, classes, messages, and send school-wide announcements. (Billing and school settings stay with the school owner.)</p>`,
+      ctaLabel: "Set up your account",
+      ctaUrl:   opts.inviteLink,
+      footnote: `This invite is just for you. If you weren't expecting it, you can ignore this email.`,
+    }),
+  }
+}
+
+/* ── 8. Class assignment (teacher assigned to a class) ──────────────────────── */
+export function classAssignmentEmail(opts: {
+  teacherName: string; schoolName: string; className: string; gradeLevel?: string
+  accent?: string; logoUrl?: string | null
+}) {
+  const first = esc(opts.teacherName.split(" ")[0] || "there")
+  const cls   = esc(opts.className)
+  const grade = opts.gradeLevel ? ` (${esc(opts.gradeLevel)})` : ""
+  return {
+    subject: `You've been assigned to ${opts.className}`,
+    html: emailLayout({
+      accent:       opts.accent,
+      brandName:    opts.schoolName,
+      brandLogoUrl: opts.logoUrl ?? undefined,
+      eyebrow:      "Class assignment",
+      heading:      `${first}, you're now the teacher for ${cls}`,
+      body: `
+        <p style="margin:0 0 14px">An administrator at <strong>${esc(opts.schoolName)}</strong> has assigned you to <strong>${cls}${grade}</strong>.</p>
+        <p style="margin:0">You can now mark attendance, set homework, add students, and message that class's parents from your dashboard.</p>`,
+      ctaLabel: "Open your classes",
+      ctaUrl:   `${APP_URL}/teacher/dashboard`,
+    }),
+  }
+}
+
+/* ── 9. Town Hall broadcast ─────────────────────────────────────────────────── */
+export function townHallEmail(opts: {
+  recipientName: string; schoolName: string; title: string; body: string
+  role: "teacher" | "parent"; accent?: string; logoUrl?: string | null
+}) {
+  const first = esc(opts.recipientName.split(" ")[0] || "there")
+  const dash  = opts.role === "teacher" ? "/teacher/townhall" : "/parent/townhall"
+  // Preserve author line breaks as paragraphs.
+  const bodyHtml = esc(opts.body)
+    .split(/\n{2,}/).map(p => `<p style="margin:0 0 12px">${p.replace(/\n/g, "<br>")}</p>`).join("")
+  return {
+    subject: `${opts.schoolName}: ${opts.title}`,
+    html: emailLayout({
+      accent:       opts.accent,
+      brandName:    opts.schoolName,
+      brandLogoUrl: opts.logoUrl ?? undefined,
+      eyebrow:      "Town Hall",
+      heading:      esc(opts.title),
+      body: `
+        <p style="margin:0 0 14px">Hi ${first},</p>
+        ${bodyHtml}`,
+      ctaLabel: "View in Scholr",
+      ctaUrl:   `${APP_URL}${dash}`,
+    }),
+  }
+}

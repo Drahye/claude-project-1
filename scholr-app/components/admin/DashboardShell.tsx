@@ -520,9 +520,11 @@ export default function DashboardShell({
 
       {/* ── Spotlight + KPIs ── */}
       <div className="grid lg:grid-cols-[1.05fr_1.25fr] gap-5 mb-5">
-        <Reveal delay={90}>
-          <HealthSpotlight score={healthScore} attendancePct={attendancePct} hwPct={hwRate} />
-        </Reveal>
+        <div data-tour="health-card">
+          <Reveal delay={90}>
+            <HealthSpotlight score={healthScore} attendancePct={attendancePct} hwPct={hwRate} />
+          </Reveal>
+        </div>
         <div className="grid grid-cols-2 gap-4" data-tour="stat-cards">
           {kpis.map((k, i) => (
             <KPICard key={k.label} {...k} delay={i * 60} />

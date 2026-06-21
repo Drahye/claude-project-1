@@ -26,6 +26,8 @@ export default async function SchoolBuilderPage({
   if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
     redirect("/login")
   }
+  // Customization (branding/public page) is owner-only.
+  if (profile.role !== "super_admin") redirect("/admin/dashboard")
 
   const { data: school } = await supabase
     .from("schools")

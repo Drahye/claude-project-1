@@ -83,10 +83,18 @@ export default function DashboardTour({
   }, [storageKey])
 
   const measureTarget = useCallback((stepIndex: number) => {
-    const target = STEPS[stepIndex]?.target
-    if (!target) return
-    const el = document.querySelector(`[data-tour="${target}"]`)
-    if (!el) return
+    // Find the first step at or after stepIndex whose anchor actually exists in
+    // the DOM. A missing anchor (e.g. a card hidden on this screen size) used to
+    // dead-end the tour with a null rect — now we skip forward instead of freezing.
+    let i = stepIndex
+    let el: Element | null = null
+    while (i < STEPS.length) {
+      el = document.querySelector(`[data-tour="${STEPS[i]?.target}"]`)
+      if (el) break
+      i++
+    }
+    if (!el) return            // nothing left to show; leave the current state as-is
+    if (i !== stepIndex) setStep(i)
     const r = el.getBoundingClientRect()
     setRect({ top: r.top + window.scrollY, left: r.left + window.scrollX, width: r.width, height: r.height })
     el.scrollIntoView({ behavior: "smooth", block: "center" })

@@ -1,27 +1,17 @@
 import { NextRequest, NextResponse }        from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
+import { requireSuperAdmin }                from "@/lib/api-auth"
 import { isPaidPlan }                       from "@/lib/plans"
 import type { School }                      from "@/types/database"
 
 export async function POST(req: NextRequest) {
-  // 1 — verify caller is an authenticated admin
+  // 1 — school branding/settings is owner-only. A limited admin gets 403 here.
+  //     (This route uses the service client below, which bypasses RLS, so the
+  //     code guard — not the DB policy — is the real enforcement.)
+  const auth = await requireSuperAdmin()
+  if (auth instanceof NextResponse) return auth
+  const profile = { school_id: auth.schoolId, role: auth.role }
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("school_id, role")
-    .eq("id", user.id)
-    .single() as unknown as { data: { school_id: string; role: string } | null; error: unknown }
-
-  if (profileErr || !profile) {
-    return NextResponse.json({ error: "Profile not found" }, { status: 403 })
-  }
-
-  if (profile.role !== "admin" && profile.role !== "super_admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
 
   // Plan gate: paid public-page perks can only be saved on a paid plan.
   const { data: schoolRow } = await supabase

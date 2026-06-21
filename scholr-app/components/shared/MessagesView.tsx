@@ -36,6 +36,7 @@ interface Props {
   latestMessages: Message[]
   participantProfiles: Profile[]
   contacts: Profile[]          // people this user can message
+  contactMeta?: Record<string, string>  // contact id → tag (e.g. "Parent of Ada")
   currentUser: Profile & { school_id: string }
   schoolId: string
 }
@@ -45,6 +46,7 @@ export default function MessagesView({
   latestMessages: initialLatest,
   participantProfiles: initialProfiles,
   contacts,
+  contactMeta = {},
   currentUser,
   schoolId,
 }: Props) {
@@ -308,12 +310,16 @@ export default function MessagesView({
               >
                 <option value="">Select recipient…</option>
                 {contacts.map(c => {
-                  const roleLabel = c.role === "teacher" ? "Teacher"
-                    : (c.role === "admin" || c.role === "super_admin") ? "School admin"
-                    : null
+                  // A parent tag (e.g. "Parent of Ada") takes priority over the
+                  // generic role label so teachers know which child each parent has.
+                  const tag = contactMeta[c.id]
+                    ?? (c.role === "teacher" ? "Teacher"
+                      : (c.role === "admin" || c.role === "super_admin") ? "School admin"
+                      : c.role === "parent" ? "Parent"
+                      : null)
                   return (
                     <option key={c.id} value={c.id}>
-                      {c.full_name}{roleLabel ? ` · ${roleLabel}` : ""}
+                      {c.full_name}{tag ? ` · ${tag}` : ""}
                     </option>
                   )
                 })}

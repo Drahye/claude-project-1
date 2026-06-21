@@ -12,13 +12,13 @@ const SLIDES = [
   {
     id: "ai",
     tag: "AI-Powered",
-    tagColor: "#a78bfa",
+    tagColor: "#fca98f",
     headline: "Reports that write\nthemselves",
     body: "Claude generates a personalised weekly report for every parent — attendance, homework, and teacher notes — in one click every Friday.",
     author: "Mrs. Patricia Coleman",
     role: "Head of Year 4 · Brightwood Academy",
     quote: "The Weekly Report alone saved my sanity. I actually look forward to Fridays now.",
-    accent: "#7c3aed",
+    accent: "#f4795b",
     visual: <AIReportVisual />,
   },
   {
@@ -66,12 +66,12 @@ function AIReportVisual() {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(124,58,237,0.25)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(244,121,91,0.22)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center gap-2">
-          <Sparkles size={13} className="text-violet-300" />
-          <span className="text-xs font-bold text-violet-300">Friday story</span>
+          <Sparkles size={13} className="text-[#fca98f]" />
+          <span className="text-xs font-bold text-[#fca98f]">Friday story</span>
         </div>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/30 text-violet-200">AI · Claude</span>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f4795b]/30 text-[#fdc3b0]">AI · Claude</span>
       </div>
       <div className="p-4 space-y-3">
         {/* Student */}
@@ -96,7 +96,7 @@ function AIReportVisual() {
           </div>
         </div>
         {/* AI summary */}
-        <div className="rounded-xl p-3" style={{ background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.3)" }}>
+        <div className="rounded-xl p-3" style={{ background: "rgba(244,121,91,0.15)", border: "1px solid rgba(244,121,91,0.3)" }}>
           <p className="text-[11px] leading-relaxed text-white/70 italic">
             "Amara showed exceptional focus this week. Her science presentation impressed the class and demonstrated strong analytical thinking…"
           </p>
@@ -198,7 +198,7 @@ function AnalyticsVisual() {
   const metrics = [
     { label: "Attendance", value: 91, color: "#34d399", change: "+4%" },
     { label: "Homework", value: 78, color: "#60a5fa", change: "+11%" },
-    { label: "Fee collection", value: 84, color: "#a78bfa", change: "+7%" },
+    { label: "Fee collection", value: 84, color: "#f4795b", change: "+7%" },
   ]
   const bars = [72, 85, 78, 91, 88, 84, 91]
   const days = ["M","T","W","T","F","S","S"]

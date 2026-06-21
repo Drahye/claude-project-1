@@ -25,6 +25,8 @@ export default async function BillingPage() {
   if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
     redirect("/login")
   }
+  // Billing is owner-only — limited admins land back on the dashboard.
+  if (profile.role !== "super_admin") redirect("/admin/dashboard")
 
   const { data: school } = await supabase
     .from("schools")

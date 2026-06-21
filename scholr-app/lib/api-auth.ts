@@ -1,30 +1,29 @@
 import { NextResponse } from "next/server"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
+import type { UserRole } from "@/types/database"
 
 export interface AdminAuth {
   /** The authenticated admin/super_admin user. */
   user: User
   /** The school the admin belongs to. All writes must be scoped to this id. */
   schoolId: string
+  /** The caller's role — lets routes branch admin vs super_admin when needed. */
+  role: UserRole
 }
 
 /**
- * Guard for admin-only API routes.
- *
- * Returns the authenticated admin's user + school_id, OR a ready-to-return
- * error Response (401 if not signed in, 403 if not an admin). Callers branch on
- * `instanceof NextResponse` so there's exactly one return shape across every
- * route:
+ * Shared guard. Returns the caller's user + school + role, or a ready-to-return
+ * error Response. `allowed` lists the roles permitted on the route.
  *
  *   const auth = await requireAdmin()
  *   if (auth instanceof NextResponse) return auth
- *   // ...use auth.user / auth.schoolId
+ *   // ...use auth.user / auth.schoolId / auth.role
  *
  * school_id always comes from the session here — never from the request body —
- * so an admin can only ever act on their own school.
+ * so a caller can only ever act on their own school.
  */
-export async function requireAdmin(): Promise<AdminAuth | NextResponse> {
+async function requireRole(allowed: UserRole[]): Promise<AdminAuth | NextResponse> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -33,11 +32,29 @@ export async function requireAdmin(): Promise<AdminAuth | NextResponse> {
     .from("profiles")
     .select("school_id, role")
     .eq("id", user.id)
-    .single() as unknown as { data: { school_id: string; role: string } | null }
+    .single() as unknown as { data: { school_id: string; role: UserRole } | null }
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "super_admin")) {
+  if (!profile || !allowed.includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  return { user, schoolId: profile.school_id }
+  return { user, schoolId: profile.school_id, role: profile.role }
+}
+
+/** Admin-only routes — either a limited `admin` or the owner `super_admin`. */
+export function requireAdmin(): Promise<AdminAuth | NextResponse> {
+  return requireRole(["admin", "super_admin"])
+}
+
+/**
+ * Owner-only routes (billing, school settings/branding, danger zone, managing
+ * other admins). A limited `admin` gets a 403 here.
+ */
+export function requireSuperAdmin(): Promise<AdminAuth | NextResponse> {
+  return requireRole(["super_admin"])
+}
+
+/** Teacher-only routes. */
+export function requireTeacher(): Promise<AdminAuth | NextResponse> {
+  return requireRole(["teacher"])
 }

@@ -4,7 +4,7 @@ import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, Users, MessageSquare, FileText, Bell, Settings,
-  LogOut, GraduationCap,
+  LogOut, GraduationCap, Megaphone,
 } from "lucide-react"
 import { cn, getInitials, avatarColor } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -16,6 +16,7 @@ const NAV = [
   { label: "Children", href: "/parent/children",  icon: Users },
   { label: "Messages", href: "/parent/messages",  icon: MessageSquare },
   { label: "Reports",  href: "/parent/reports",   icon: FileText },
+  { label: "Town Hall", href: "/parent/townhall", icon: Megaphone },
   { label: "Alerts",   href: "/parent/alerts",    icon: Bell },
   { label: "Settings", href: "/parent/settings",  icon: Settings },
 ]

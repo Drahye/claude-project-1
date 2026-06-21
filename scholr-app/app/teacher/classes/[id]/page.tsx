@@ -19,7 +19,7 @@ export default async function TeacherClassPage({ params }: { params: Promise<{ i
   const { data: cls } = await supabase
     .from("classes").select("id, name, grade_level, academic_year, teacher_id, school_id")
     .eq("id", id).eq("teacher_id", user.id).maybeSingle() as unknown as
-    { data: { id: string; name: string; grade_level: string; academic_year: string; teacher_id: string } | null }
+    { data: { id: string; name: string; grade_level: string; academic_year: string; teacher_id: string; school_id: string } | null }
   if (!cls) notFound()
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle() as unknown as { data: { full_name: string } | null }
@@ -37,6 +37,14 @@ export default async function TeacherClassPage({ params }: { params: Promise<{ i
     activities: Array.isArray(s.activities) ? s.activities : [],
   })))
 
+  // School students not already in this class — for the "enrol existing" picker.
+  const enrolledIds = new Set(students.map(s => s.id))
+  const { data: allStudents } = await supabase
+    .from("students").select("id, full_name, admission_number")
+    .eq("school_id", cls.school_id).eq("is_active", true)
+    .order("full_name") as unknown as { data: Array<{ id: string; full_name: string; admission_number: string }> | null }
+  const availableStudents = (allStudents ?? []).filter(s => !enrolledIds.has(s.id))
+
   return (
     <div className="p-5 sm:p-7 pb-24 max-w-3xl mx-auto">
       <Link href="/teacher/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium mb-5 transition-opacity hover:opacity-70" style={{ color: "var(--c-text-muted)", textDecoration: "none" }}>
@@ -45,6 +53,7 @@ export default async function TeacherClassPage({ params }: { params: Promise<{ i
       <ClassDetail
         classId={cls.id} name={cls.name} grade={cls.grade_level} academicYear={cls.academic_year}
         teacherName={profile?.full_name ?? null} students={students} canManage
+        availableStudents={availableStudents}
       />
     </div>
   )
