@@ -1,0 +1,39 @@
+{
+  "name": "Scholr",
+  "short_name": "Scholr",
+  "description": "Premium school communication for parents, teachers, and admins.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF3E7",
+  "theme_color": "#EE9A36",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/parent/dashboard",
+      "description": "View your child's dashboard"
+    },
+    {
+      "name": "Messages",
+      "url": "/parent/messages",
+      "description": "Read your messages"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}
